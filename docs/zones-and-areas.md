@@ -562,6 +562,79 @@ This asymmetry is intentional and should be preserved.
 
 ---
 
+
+# Zone geometry in the static map stack
+
+PR #1788 adds a fourth zone concept beyond start action, metadata and settings:
+
+```text
+registered work-area geometry
+```
+
+The draft joins:
+
+```text
+onArI
+    → local work-area contour
+
+getAreaSet type="ar"
+    → area ID + display name
+
+onMI
+    → static main-map frame
+```
+
+and emits:
+
+```text
+MowerWorkAreasEvent
+```
+
+Each:
+
+```text
+MowerWorkArea
+```
+
+contains the user-visible name plus a:
+
+```text
+MowerMapTraceGroup
+```
+
+whose `group_id` preserves the area ID.
+
+The raw `onArI` geometry is local rather than already positioned on the main map.
+
+PR #1788 therefore registers each area using the longest shared contiguous RLE direction sequence with the static main boundary and applies a translation only.
+
+Ambiguous registrations are rejected.
+
+This means the earlier category:
+
+```text
+map/geometry data
+```
+
+is now **partially mapped** for the researched O1200 static-map stack.
+
+It still does not solve:
+
+```text
+selected-zone start
+multi-zone ordering
+live position
+dock position
+live mowing plan
+map editing
+```
+
+See:
+
+[GOAT mower map support](map.md)
+
+---
+
 # What the area-parameter PRs do not solve
 
 Even with `areaID` and zone settings mapped, the following remain separate research topics:
@@ -766,6 +839,7 @@ CutDirectionEvent.angle
 - [Capabilities](capabilities.md)
 - [Mowing control](mowing-control.md)
 - [O1200 area parameters](area-parameters.md)
+- [GOAT mower map support](map.md)
 - [O1200 area names](area-names.md)
 - [Settings](settings.md)
 - [Protocol reference](protocol-reference.md)

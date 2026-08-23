@@ -608,12 +608,62 @@ feature/ecovacs-mower-area-names
 
 ---
 
+
+# Relationship to the mower map stack
+
+PR #1774 models O1200 area names as:
+
+```text
+GetAreaSet
+   │
+   ▼
+RoomsEvent
+   │
+   ▼
+CapabilityClean.areas
+```
+
+The newer stacked map draft #1788 reuses the same underlying:
+
+```text
+getAreaSet type="ar"
+```
+
+metadata directly inside the map pipeline.
+
+It combines area IDs/names with:
+
+```text
+onArI geometry
+```
+
+to create:
+
+```text
+MowerWorkAreasEvent
+```
+
+with registered polygons.
+
+PR #1788 explicitly describes this as superseding the **map-zone parsing direction** of #1774 if the new stack is accepted.
+
+This does not invalidate the #1774 protocol observation or its Home Assistant area-name prototype.
+
+It means the final client architecture should avoid independently decoding the same AreaSet data twice for one hardware profile unless there is a deliberate reason to expose both abstractions.
+
+See:
+
+[GOAT mower map support](map.md)
+
+---
+
 # Related documentation
 
 - [Overview](overview.md)
 - [Supported models](supported-models.md)
 - [Capabilities](capabilities.md)
 - [Zones and areas](zones-and-areas.md)
+- [GOAT mower map support](map.md)
 - [O1200 area parameters](area-parameters.md)
 - [Protocol reference](protocol-reference.md)
 - [Home Assistant](home-assistant.md)

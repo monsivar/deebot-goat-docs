@@ -108,6 +108,203 @@ Detailed architecture:
 
 ---
 
+
+# GOAT mower map protocol stack
+
+The current mower map development uses several distinct wire families.
+
+Do not collapse them into one generic "map message".
+
+## `onMapTrace`
+
+Source work:
+
+```text
+PR #1567
+```
+
+Purpose in the current architecture:
+
+```text
+typed mower trace/group geometry
+```
+
+Observed mower payloads can be chunked and LZMA-wrapped.
+
+Normalised event:
+
+```text
+MowerMapTraceEvent
+```
+
+This is distinct from the O1200 live:
+
+```text
+onMapTrack
+```
+
+research family.
+
+## `getMI`
+
+Direction:
+
+```text
+GET / control request
+```
+
+Research shows both tested legacy and N-GIoT transports can solicit the O1200 static-map event family while presence is active.
+
+The direct acknowledgement is not treated as the static geometry payload.
+
+## `onMI`
+
+Direction:
+
+```text
+PUSH
+```
+
+PR #1782 parses the supported O1200 request-associated geometry form into:
+
+```text
+MowerStaticMapEvent
+```
+
+The parser intentionally ignores the cadence-associated non-geometry form.
+
+Observed O1200 static geometry:
+
+```text
+step_size = 50
+2,336 points in the golden fixture
+```
+
+## `onArI`
+
+Direction:
+
+```text
+PUSH
+```
+
+PR #1788 parses complete:
+
+```text
+type = 0
+```
+
+work-area geometry snapshots.
+
+Persistent work-area geometry is carried in the observed:
+
+```text
+layer "1"
+```
+
+and uses the same eight-direction RLE representation as the static boundary.
+
+Normalised output contributes to:
+
+```text
+MowerWorkAreasEvent
+```
+
+after metadata join and coordinate registration.
+
+## `getAreaSet`
+
+Direction:
+
+```text
+GET
+```
+
+PR #1788 uses:
+
+```text
+type = "ar"
+```
+
+for area metadata:
+
+```text
+map ID
+area ID
+display name
+```
+
+Important framing rule:
+
+```text
+AreaSet envelope infoSize
+    ≠ decoded payload length
+```
+
+for the controlled O1200 corpus.
+
+The parser instead validates the decompressed size retained in the trimmed LZMA-Alone header.
+
+This rule is scoped to AreaSet and must not be applied blindly to `onMI`/`onArI`.
+
+## `appping`
+
+Research role:
+
+```text
+live-map presence trigger
+```
+
+Controlled O1200 tests observed an approximately:
+
+```text
+300-second
+```
+
+presence lease, reset by a later `appping`.
+
+The current static map stack does not yet implement this as production Map lifecycle logic.
+
+## `onPos`
+
+Research role:
+
+```text
+live mower position
+```
+
+Raw position support is separate from the static-map rendering path because the live-to-static transform is not proven.
+
+## `onMapTrack`
+
+Research role:
+
+```text
+live mowing-plan/activity stream
+```
+
+Diagnostic decoding has established chunk/update structure, but no production Map event/rendering layer is included in #1789.
+
+## Observed O1200 map-ID split
+
+In the captured O1200 corpus:
+
+```text
+onPos / onMapTrack
+    → map ID 0
+
+onMI / onArI
+    → map ID 1
+```
+
+Treat this as model/capture evidence, not a universal GOAT rule.
+
+Detailed reference:
+
+[GOAT mower map support](map.md)
+
+---
+
 # Mowing control
 
 ## `clean_V2`
@@ -1670,6 +1867,7 @@ Prefer minimal payload examples.
 - [Capabilities](capabilities.md)
 - [Mowing control](mowing-control.md)
 - [Zones and areas](zones-and-areas.md)
+- [GOAT mower map support](map.md)
 - [O1200 area parameters](area-parameters.md)
 - [O1200 global settings](o1200-global-settings.md)
 - [O1200 area names](area-names.md)

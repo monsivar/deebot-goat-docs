@@ -1032,6 +1032,62 @@ This reflects the protocol more accurately than a single "zone" scalar.
 
 ---
 
+
+# GOAT map stack and Home Assistant
+
+The client map stack in PR #1789 is designed to preserve the existing public:
+
+```text
+device.map
+Map.get_svg_map()
+```
+
+path.
+
+This is favourable for a future Home Assistant integration because HA should not need a separate GOAT-specific SVG renderer.
+
+However, PR #1789 explicitly does **not** include Home Assistant compatibility changes and does not yet wire the mower map capability into the O1200 hardware profile.
+
+Current status:
+
+```text
+static parser/events
+    implemented in stacked client drafts
+
+shared SVG renderer
+    implemented in stacked client draft
+
+O1200 map capability wiring
+    not yet implemented
+
+Home Assistant map entity/image integration
+    not yet implemented
+```
+
+A future HA implementation should initially expose only the evidence-backed static layers:
+
+```text
+main lawn boundary
+registered work-area polygons
+```
+
+It should **not** render:
+
+```text
+mower position
+dock
+onMapTrack
+current area
+```
+
+until the live coordinate semantics are independently proven.
+
+The static stack is documented in:
+
+[GOAT mower map support](map.md)
+
+---
+
 # Mowing speed
 
 A dedicated mower-speed protocol remains unmapped.
@@ -1224,6 +1280,7 @@ Home Assistant progress branch:
 - [Capabilities](capabilities.md)
 - [Mowing control](mowing-control.md)
 - [Zones and areas](zones-and-areas.md)
+- [GOAT mower map support](map.md)
 - [O1200 area parameters](area-parameters.md)
 - [O1200 global settings](o1200-global-settings.md)
 - [O1200 area names](area-names.md)

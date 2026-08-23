@@ -452,6 +452,52 @@ Does the selected-zone start command use the same IDs?
 
 ---
 
+
+# GOAT map development status
+
+The current map stack should not yet be represented as an enabled O1200 `map` capability in the model matrix.
+
+The stacked drafts implement:
+
+```text
+#1567 — shared mower grouped geometry / onMapTrace
+#1782 — O1200 static onMI boundary
+#1788 — O1200 work areas + names + registration
+#1789 — shared Map capability + static SVG rendering
+```
+
+but #1789 explicitly does **not** wire:
+
+```text
+CapabilityMap.mower
+```
+
+into:
+
+```text
+2i0fns
+```
+
+yet.
+
+Therefore the correct current O1200 status is:
+
+```text
+protocol/parser evidence: high
+software static-map stack: implemented in drafts
+hardware capability enabled: no
+upstream merged: no
+Home Assistant map: no
+```
+
+PR #1567 has direct `onMapTrace` evidence from the A1600 RTK firmware 1.15.13, but the O1200 static-map parser/registration fixtures must not automatically be enabled for A1600 or other GOAT models.
+
+See:
+
+[GOAT mower map support](map.md)
+
+---
+
 # Common state handling
 
 All five reviewed upstream mower profiles use state retrieval including:
@@ -822,7 +868,7 @@ rain/AI/protection settings
 selected-zone start capability
     still incomplete
 
-full map capability
+static map hardware wiring + live map layers
     separate/incomplete
 ```
 
@@ -834,6 +880,7 @@ full map capability
 - [Capability architecture](capabilities.md)
 - [Mowing control](mowing-control.md)
 - [Zones and areas](zones-and-areas.md)
+- [GOAT mower map support](map.md)
 - [O1200 area names](area-names.md)
 - [O1200 area parameters](area-parameters.md)
 - [Progress and statistics](progress-and-statistics.md)

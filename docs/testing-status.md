@@ -141,10 +141,155 @@ Likewise, a Home Assistant test can prove that an event is exposed correctly as 
 | O1200 area `angle` | — | ✓ | ✓ | ✓ | App/protocol correlation | Not yet exposed | High for raw field; relation to global cut direction incomplete |
 | Mowing speed | — | — | — | — | requires mapping | — | Not mapped |
 | Scheduling | Partial generic ecosystem only | — | — | GOAT mapping incomplete | App feature area | — | Not mapped for GOAT |
-| GOAT map semantics | Partial generic client map support | separate research | — | incomplete | app/device mapping exists | separate work | Incomplete |
+| Mower `onMapTrace` grouped parser | — | ✓ #1567 | ✓ | protocol capture | A1600 direct + O1200 analysis | — | Open PR; typed geometry established |
+| O1200 static `onMI` boundary | — | ✓ #1782 | ✓ | ✓ sanitized fixtures | ✓ protocol/reference viewer | — | Draft; 2,336-point static geometry |
+| O1200 work areas + registration | — | ✓ #1788 | ✓ | ✓ sanitized fixtures | ✓ protocol research | — | Draft; named registered polygons |
+| Shared mower Map/SVG pipeline | — | ✓ #1789 | ✓ | renderer snapshots | software-level | not yet | Draft; no hardware wiring |
+| Map acquisition/presence lifecycle | — | diagnostics/research | research tests | ✓ | ✓ protocol runs | — | `appping` lease observed; not production capability |
+| Live mower position overlay | raw position support separate | — | — | research | observed | — | Static transform not proven |
+| `onMapTrack` rendering | — | diagnostic decode only | research | ✓ | ✓ | — | Not implemented in Map MVP |
 
 ---
 
+
+
+# GOAT static map stack
+
+## PR #1567 — mower `onMapTrace`
+
+Status:
+
+```text
+Open PR
+Python implemented/tested
+```
+
+The PR reports:
+
+```text
+705/705 full tests passed
+```
+
+and covers:
+
+```text
+single and multi-group payloads
+chunk reassembly
+out-of-order chunks
+cycle reset
+corruption handling
+memory bounds
+legacy compatibility projection
+```
+
+Direct source evidence includes A1600 RTK firmware 1.15.13, with O1200 capture analysis informing chunk handling.
+
+## PR #1782 — O1200 `onMI`
+
+Status:
+
+```text
+Stacked draft
+Parser implemented/tested
+```
+
+The sanitized O1200 fixture verifies:
+
+```text
+request-associated geometry form
+2,336 points
+bounds
+open boundary gap
+50-unit step
+point-for-point reference-viewer match
+```
+
+The cadence-associated short form is a required non-geometry/fallback case.
+
+## PR #1788 — work areas
+
+Status:
+
+```text
+Stacked draft
+Parser + registration implemented/tested
+```
+
+The rebased PR reports:
+
+```text
+67 relevant tests passed
+```
+
+Coverage includes:
+
+```text
+complete onArI chunk snapshots
+AreaSet framing
+area ID/name metadata
+geometry/metadata ID agreement
+translation registration
+ambiguous-registration rejection
+snapshot coordination
+```
+
+## PR #1789 — shared Map rendering
+
+Status:
+
+```text
+Stacked draft
+Python + Rust software validation
+```
+
+Reported validation:
+
+```text
+Python map/capability/mower tests: 21 passed
+existing SVG snapshots: 6 unchanged/passed
+Rust tests: 68 passed
+mypy: passed
+Ruff: passed
+cargo fmt --check: passed
+clippy -D warnings: passed
+git diff --check: passed
+```
+
+## Acquisition research
+
+Controlled O1200 diagnostics support:
+
+```text
+appping activates live map stream
+JMQ not required for activation in tested runs
+presence lease ≈ 300 seconds
+renewal resets lease
+getMI can solicit request-associated onMI/onArI
+```
+
+These are protocol/device research findings.
+
+They are not yet implemented as the production `Map` acquisition lifecycle.
+
+## Remaining map verification
+
+Still required:
+
+```text
+O1200 hardware capability wiring
+end-to-end Map refresh through normal Device API
+Home Assistant compatibility
+live-position transform
+dock rendering
+onMapTrack production model/rendering
+cross-model static-map support
+```
+
+See:
+
+[GOAT mower map support](map.md)
+
+---
 
 # Device-specific command routing — PR #1772
 
@@ -1235,6 +1380,7 @@ Recommended priorities:
 - [Supported models](supported-models.md)
 - [Mowing control](mowing-control.md)
 - [Zones and areas](zones-and-areas.md)
+- [GOAT mower map support](map.md)
 - [Progress and statistics](progress-and-statistics.md)
 - [Settings](settings.md)
 - [O1200 global settings](o1200-global-settings.md)

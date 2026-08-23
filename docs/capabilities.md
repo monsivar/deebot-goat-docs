@@ -856,6 +856,80 @@ See:
 
 ---
 
+
+# Mower map capability — PR #1789
+
+PR #1789 extends the shared map capability so a mower can use the existing Map pipeline without claiming vacuum-only map features.
+
+The draft introduces:
+
+```python
+@dataclass(frozen=True, kw_only=True)
+class CapabilityMowerMap:
+    static: CapabilityEvent[MowerStaticMapEvent]
+    work_areas: CapabilityEvent[MowerWorkAreasEvent]
+```
+
+inside:
+
+```text
+CapabilityMap.mower
+```
+
+Conceptually:
+
+```text
+CapabilityMap
+├── changed
+├── optional vacuum capabilities
+│   ├── cached_info
+│   ├── position
+│   ├── rooms
+│   ├── trace
+│   └── ...
+└── mower
+    ├── static
+    └── work_areas
+```
+
+Vacuum-specific fields become optional.
+
+This lets the shared:
+
+```text
+Map
+```
+
+class subscribe only to features declared by the hardware profile.
+
+The current draft does **not** yet wire this capability to the O1200 hardware profile.
+
+Therefore:
+
+```text
+mower map capability architecture
+    ✓ implemented in stacked draft
+
+O1200 normal device capability
+    not yet enabled
+```
+
+This is separate from:
+
+```text
+clean.areas
+```
+
+introduced by PR #1774.
+
+`clean.areas` represents generic readable area-name metadata, while `map.mower.work_areas` represents named geometry already registered into the static map coordinate frame.
+
+See:
+
+[GOAT mower map support](map.md)
+
+---
+
 # Event refresh mapping
 
 `Capabilities` recursively builds a mapping from event types to their refresh commands.
@@ -1507,6 +1581,7 @@ HA development consumes RoomsEvent
 - [Supported models](supported-models.md)
 - [Mowing control](mowing-control.md)
 - [Zones and areas](zones-and-areas.md)
+- [GOAT mower map support](map.md)
 - [O1200 area names](area-names.md)
 - [O1200 area parameters](area-parameters.md)
 - [Progress and statistics](progress-and-statistics.md)

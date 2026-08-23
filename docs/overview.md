@@ -452,6 +452,66 @@ See:
 
 ---
 
+
+# GOAT static map stack
+
+GOAT map research has progressed beyond a generic "map semantics unknown" state.
+
+The current development stack is:
+
+```text
+#1567
+shared mower groups → segments → points
+        │
+        ▼
+#1782
+O1200 onMI static main boundary
+        │
+        ▼
+#1788
+onArI work-area geometry
++ getAreaSet area IDs/names
++ deterministic registration
+        │
+        ▼
+#1789
+shared Map capability
++ shared Rust SVG rendering
+```
+
+The result is a **static-map MVP** for:
+
+```text
+main lawn boundary
+registered named work-area polygons
+```
+
+The public rendering path remains:
+
+```text
+device.map → Map.get_svg_map()
+```
+
+Important remaining gaps include:
+
+```text
+acquisition/session lifecycle
+O1200 hardware wiring
+live mower position transform
+dock position
+onMapTrack rendering
+map editing
+Home Assistant compatibility
+```
+
+The map stack intentionally keeps static boundary, persistent work areas, live position and live mowing-plan data as separate concepts.
+
+See:
+
+[GOAT mower map support](map.md)
+
+---
+
 # O1200 cutting height is protocol-mapped
 
 The O1200 development implementation maps cutting-height state through:

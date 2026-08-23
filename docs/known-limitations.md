@@ -53,7 +53,7 @@ Major known limitations currently include:
 - no separate explicit ECOVACS ETA field identified
 - O1200 progress semantics not yet cross-model verified
 - O1200 area names/IDs are mapped in development via `getAreaSet`, but selected-zone start and full zone geometry remain separate gaps
-- no complete GOAT mower map abstraction
+- static GOAT map parser/rendering stack exists in open drafts, but hardware wiring, acquisition and live layers remain incomplete
 - AI/obstacle settings not fully correlated with ECOVACS app wording
 - physical effects of AI settings not systematically tested
 - incomplete rain-delay lifecycle interpretation
@@ -1040,36 +1040,93 @@ cross-model volume scale: unverified
 
 ---
 
-# GOAT map support is incomplete
+# GOAT map support is now partially implemented in a stacked draft
 
-The common client contains map abstractions primarily developed around DEEBOT devices.
-
-GOAT map research remains separate and incomplete.
-
-Potential mower objects include:
+The earlier description:
 
 ```text
-lawn boundary
-zones
-no-go areas
-station position
-mower position
-route
-mowing trace
+no complete GOAT mower map abstraction
 ```
 
-A complete implementation needs to establish:
+is now too broad.
 
-- coordinate system
-- origin
-- scale
-- orientation
-- object IDs
-- revisions
-- geometry semantics
-- relationship to named zones
+The current stacked development work implements a **static map MVP**:
 
-Do not assume vacuum-map semantics transfer unchanged.
+```text
+#1567
+shared mower group/segment/point geometry
+
+#1782
+O1200 static onMI main boundary
+
+#1788
+onArI work-area geometry
++ getAreaSet names/IDs
++ work-area registration
+
+#1789
+shared Map capability
++ shared Rust SVG rendering
+```
+
+This resolves a substantial part of the static-map problem.
+
+## What is still missing
+
+The stack is not complete production GOAT map support.
+
+PR #1789 explicitly does not yet implement:
+
+```text
+O1200 hardware wiring
+AppPing/getMI acquisition lifecycle
+getAreaSet lifecycle coordination
+Home Assistant compatibility
+mower position overlay
+dock position
+live-position → static-map transform
+current_area
+onMapTrack rendering
+map editing
+```
+
+## Static versus live coordinates
+
+The static boundary and registered work areas share a proven coordinate frame.
+
+The live mower-position frame does not yet have a unique proven transform into that static frame.
+
+Research currently supports 135° as the strongest tested rotation candidate, but translation remains non-unique.
+
+Therefore no live position should be overlaid on the static map yet.
+
+## AreaSet size semantics are family-specific
+
+For O1200 `getAreaSet type="ar"`:
+
+```text
+envelope infoSize
+```
+
+is not the decompressed byte length.
+
+The internal trimmed-LZMA size field is used instead.
+
+Do not generalize that rule to `onMI` or grouped `onArI`, where `infoSize` has separate evidence.
+
+## Hardware/model scope
+
+The static O1200 parser/registration evidence should not be enabled on another GOAT model without direct captures.
+
+PR #1567 has separate A1600 `onMapTrace` evidence, but that does not prove A1600 uses the identical O1200 static-map formats.
+
+Status:
+
+**Static map architecture implemented in open stacked drafts / production wiring and live layers incomplete**
+
+See:
+
+[GOAT mower map support](map.md)
 
 ---
 
@@ -1466,6 +1523,7 @@ This keeps implementation evidence separate from assumption.
 - [Capabilities](capabilities.md)
 - [Mowing control](mowing-control.md)
 - [Zones and areas](zones-and-areas.md)
+- [GOAT mower map support](map.md)
 - [Progress and statistics](progress-and-statistics.md)
 - [Settings](settings.md)
 - [O1200 global settings](o1200-global-settings.md)
