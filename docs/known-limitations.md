@@ -4,17 +4,18 @@ This page documents current limitations, implementation gaps and unresolved area
 
 Last reviewed against:
 
-* upstream `DeebotUniverse/client.py` `dev`
-* development branches used for GOAT mower research
-* documented GOAT protocol and physical-device observations
+- upstream `DeebotUniverse/client.py` `dev`
+- GOAT mower development branches
+- Home Assistant branch `feature/ecovacs-mower-progress`
+- documented GOAT protocol and physical-device observations
 
 Date: **2026-08-23**
 
 ## Purpose
 
-A supported GOAT hardware profile does not imply complete support for every feature available in the ECOVACS app or physical mower.
+A supported GOAT hardware profile does not imply complete support for every feature available in the official ECOVACS app or physical mower.
 
-There are several possible gaps:
+There are several possible layers:
 
 ```text
 Physical mower supports feature
@@ -32,9 +33,7 @@ hardware profile exposes capability
 consumer integration exposes feature
 ```
 
-A feature may be missing at any one of these layers.
-
-This page attempts to identify where the current gaps are.
+A feature may be missing or incomplete at any one of these layers.
 
 ---
 
@@ -42,22 +41,25 @@ This page attempts to identify where the current gaps are.
 
 Major known limitations currently include:
 
-* incomplete O1200 selected-zone capability
-* mower-specific settings still residing only in development branches
-* incomplete cross-model verification
-* cutting height not mapped
-* mowing speed not mapped
-* GOAT-specific mowing efficiency/mode not mapped
-* ECOVACS ETA source not identified
-* zone names and zone metadata not fully mapped
-* no complete mower map abstraction
-* AI/obstacle settings not fully correlated with ECOVACS app wording
-* physical effects of AI settings not systematically tested
-* incomplete rain-delay lifecycle interpretation
-* animal-protection runtime behaviour not fully understood
-* several protection-state flags have unknown semantics
-* generic vacuum-oriented terminology remains present in the client API
-* firmware and model differences can change behaviour
+- incomplete O1200 selected-zone capability
+- mower-specific settings still residing only in development branches
+- incomplete cross-model verification
+- cutting height not mapped
+- mowing speed not mapped
+- GOAT-specific mowing efficiency/mode not mapped
+- no separate explicit ECOVACS ETA field identified
+- O1200 progress semantics not yet cross-model verified
+- zone names and zone metadata not fully mapped
+- no complete GOAT mower map abstraction
+- AI/obstacle settings not fully correlated with ECOVACS app wording
+- physical effects of AI settings not systematically tested
+- incomplete rain-delay lifecycle interpretation
+- animal-protection runtime behaviour not fully understood
+- several protection-state flags have unknown semantics
+- mower scheduling is not fully mapped/documented
+- generic vacuum-oriented terminology remains present in the shared client API
+- firmware and model differences can change behaviour
+- `deebot_client` support and Home Assistant entity support are separate layers
 
 ---
 
@@ -65,11 +67,9 @@ Major known limitations currently include:
 
 Some functionality documented in this repository exists only in development branches.
 
-This distinction is important.
+## Reviewed upstream baseline
 
-## Current upstream baseline
-
-The reviewed upstream GOAT profiles expose common functionality such as:
+The reviewed upstream GOAT profiles expose common functionality including:
 
 ```text
 battery
@@ -99,10 +99,11 @@ volume
 
 ## Development-only mower features
 
-The GOAT mower development work adds features such as:
+Development work adds features including:
 
 ```text
 mowed_area
+mowing_job_progress
 ai_recognition
 animal_protection
 humanoid_ai
@@ -112,15 +113,41 @@ fall_volume
 protect_state
 ```
 
-These should not be documented as generally available in released or upstream `deebot_client` until merged.
+These should not be described as generally available in a reviewed upstream release until merged.
+
+---
+
+# Hardware profile support is not a full device specification
+
+A hardware profile answers:
+
+```text
+What does the current Python client expose?
+```
+
+It does not necessarily answer:
+
+```text
+What can the physical mower do?
+```
+
+A missing capability may reflect:
+
+- unknown protocol
+- unfinished implementation
+- missing model evidence
+- a deliberate model difference
+- an integration gap
+
+This distinction is particularly important for GOAT because the official app exposes mower functionality that may not yet be represented by the common client abstraction.
 
 ---
 
 # O1200 selected-zone mowing
 
-The physical GOAT O1200 supports selecting and mowing a defined lawn zone through the ECOVACS application.
+The physical GOAT O1200 supports selecting and mowing a defined lawn zone through the ECOVACS app.
 
-However, the current reviewed upstream O1200 hardware profile exposes:
+However, the reviewed upstream O1200 hardware profile exposes:
 
 ```python
 CapabilityClean(
@@ -130,7 +157,7 @@ CapabilityClean(
 )
 ```
 
-and does not assign:
+without:
 
 ```text
 area=CleanAreaV2
@@ -143,34 +170,32 @@ Physical mower/app
      │
      └── selected-zone mowing works
 
-Current upstream profile
+Reviewed upstream profile
      │
-     └── only generic CleanV2 exposed
+     └── only general CleanV2 action exposed
 ```
 
 Status:
 
-**Known implementation gap**
+**Known implementation/research gap**
 
 Possible explanations include:
 
-* O1200 uses a different area protocol
-* existing `CleanAreaV2` can be used but is not yet wired
-* zone identifiers require additional map metadata
-* O1200 uses another command family
-* implementation simply has not yet been completed
+- O1200 uses a different area command
+- existing `CleanAreaV2` can work but is not wired
+- zone identifiers require additional metadata
+- O1200 uses another command family
+- implementation has simply not been completed
 
-The correct solution should be based on captured O1200 traffic rather than copying the capability from another GOAT profile without verification.
+The correct solution should be based on captured O1200 traffic rather than copying another mower profile without verification.
 
 ---
 
-# Zone names are not yet fully exposed
+# Zone names are not fully exposed
 
-The ECOVACS app can present human-readable lawn-area names.
+The official app can present human-readable lawn-area names.
 
-The low-level area command accepts numeric values rather than human-readable names.
-
-A complete integration therefore needs a mapping similar to:
+A complete integration needs a mapping conceptually similar to:
 
 ```text
 "Front lawn"
@@ -182,7 +207,7 @@ zone identifier
 mowing command
 ```
 
-The current GOAT documentation does not yet establish a complete protocol source for:
+The current research does not establish a complete source for:
 
 ```text
 zone ID
@@ -200,24 +225,16 @@ Status:
 
 # Multi-zone mowing semantics
 
-The generic `CleanAreaV2` implementation supports multiple numeric targets.
-
-For example:
-
-```text
-5,8
-```
-
-can be encoded in one command.
+The generic `CleanAreaV2` implementation can encode multiple numeric targets.
 
 However, GOAT-specific questions remain:
 
-* Are multiple mower zones supported in one job?
-* Does order matter?
-* Can mowing order be explicitly configured?
-* Does ECOVACS automatically optimise order?
-* Can each zone use different mowing parameters?
-* How is progress reported for a multi-zone job?
+- Are multiple mower zones supported in one job on every relevant model?
+- Does order matter?
+- Can order be explicitly configured?
+- Does ECOVACS optimise order automatically?
+- Can each zone have different mowing parameters?
+- How is progress reported for a multi-zone job?
 
 Status:
 
@@ -225,7 +242,7 @@ Status:
 
 ---
 
-# Generic area modes may not map directly to mower terminology
+# Generic area modes may not map directly to GOAT terminology
 
 The shared client defines:
 
@@ -235,17 +252,9 @@ CUSTOM_AREA
 FREE_CLEAN
 ```
 
-These names originate from generic DEEBOT support.
+These names originate from generic ECOVACS/DEEBOT support.
 
-They should not automatically be interpreted as:
-
-```text
-GOAT zone
-GOAT custom mowing area
-GOAT free mowing
-```
-
-without protocol correlation.
+They should not automatically be interpreted as official GOAT concepts without protocol correlation.
 
 In particular:
 
@@ -253,13 +262,13 @@ In particular:
 SPOT_AREA
 ```
 
-may represent a mower zone in some flows, but this should be confirmed rather than assumed.
+may correspond to a lawn zone in some flows, but that mapping should be confirmed per model.
 
 ---
 
 # Cutting height is not mapped
 
-Cutting height is an important mower-specific setting but no dedicated GOAT cutting-height capability has been identified in the reviewed implementation.
+Cutting height is a core mower-specific setting, but no dedicated GOAT cutting-height capability has been identified in the reviewed implementation.
 
 Current state:
 
@@ -273,18 +282,18 @@ protocol command unknown
 no deebot_client capability
 ```
 
-A complete implementation would need to determine:
+A complete implementation needs:
 
-* GET command
-* SET command
-* push message, if any
-* valid values
-* physical unit
-* minimum height
-* maximum height
-* step size
-* whether values differ by model
-* whether changes can be made during mowing
+- GET command
+- SET command
+- push message, if any
+- valid values
+- physical unit
+- minimum
+- maximum
+- step size
+- model differences
+- whether changes are allowed during mowing
 
 Status:
 
@@ -294,7 +303,7 @@ Status:
 
 # Cutting direction is not cutting height
 
-Upstream already exposes:
+Upstream exposes:
 
 ```text
 settings.cut_direction
@@ -306,31 +315,19 @@ with:
 CutDirectionEvent.angle
 ```
 
-This must not be confused with blade cutting height.
+This is a mowing/path-direction angle.
 
-They are separate concepts:
+It must not be confused with physical grass cutting height.
 
-```text
-cut_direction
-      │
-      └── mowing/path direction angle
-
-cutting_height
-      │
-      └── physical grass cutting height
-```
-
-Only the first is currently mapped.
+Only cutting direction is currently mapped.
 
 ---
 
 # Mowing speed is not mapped
 
-No dedicated GOAT mowing-speed capability has been confirmed in the reviewed source.
+No dedicated GOAT mowing-speed capability has been confirmed.
 
-If the app provides speed choices, their mapping still needs to be captured.
-
-Required research includes:
+If the app provides speed choices, the research still needs to establish:
 
 ```text
 app option
@@ -342,7 +339,7 @@ wire command
 raw value
    │
    ▼
-physical speed
+physical behaviour
 ```
 
 Status:
@@ -353,7 +350,7 @@ Status:
 
 # GOAT-specific mowing efficiency/mode is not mapped
 
-The generic `CapabilitySettings` structure contains:
+The shared `CapabilitySettings` model contains a generic:
 
 ```text
 efficiency_mode
@@ -361,7 +358,7 @@ efficiency_mode
 
 for supported ECOVACS devices.
 
-The existence of this generic capability does not prove that GOAT's mowing-efficiency or mowing-mode options use the same protocol.
+Its existence does **not** prove that GOAT mowing-efficiency or mowing-mode options use the same protocol.
 
 Therefore:
 
@@ -381,79 +378,7 @@ Status:
 
 ---
 
-# Estimated duration / ETA is not implemented
-
-The ECOVACS app displays an estimated duration when starting a mowing operation.
-
-That app behaviour has been observed.
-
-However, the current research has not identified a dedicated normalised client field such as:
-
-```text
-estimated_duration
-estimated_remaining_time
-eta
-```
-
-The progress development branch currently adds:
-
-```text
-mowed_area
-```
-
-rather than ETA.
-
-Therefore:
-
-```text
-ECOVACS app ETA
-```
-
-and:
-
-```text
-StatsEvent.time
-```
-
-must not be treated as equivalent.
-
-Status:
-
-**App observed / protocol source unresolved**
-
----
-
-# Locally calculated ETA would be different
-
-A consumer could theoretically calculate an estimate using:
-
-```text
-elapsed time
-+
-completed area
-+
-total area
-```
-
-but such an estimate would be locally derived.
-
-It might differ significantly from the ECOVACS app because ECOVACS may account for:
-
-* planned path
-* geometry
-* mowing pattern
-* speed
-* obstacles
-* charging stops
-* battery state
-* navigation overhead
-* zone transitions
-
-Any locally calculated ETA should therefore be clearly labelled as derived rather than ECOVACS-reported.
-
----
-
-# `mowedArea` is not upstream yet
+# Current-job progress is not upstream
 
 The protocol field:
 
@@ -473,97 +398,205 @@ to:
 StatsEvent.mowed_area
 ```
 
-but it is not part of the reviewed upstream baseline.
+and the development hardware profile adds:
+
+```text
+mowing_job_progress=True
+```
+
+for the researched O1200 path.
+
+This is not part of the reviewed upstream baseline.
 
 Status:
 
 **Fork implemented**
 
-This means integrations depending on current upstream cannot yet assume the field exists.
+Consumers depending on upstream alone cannot yet assume these fields/flags exist.
 
 ---
 
-# Progress percentage is not a protocol field
+# Mowing progress percentage is derived, not protocol data
 
-The current development implementation preserves:
-
-```text
-area
-mowed_area
-```
-
-rather than producing:
+There is no dedicated ECOVACS protocol field or `deebot_client` event field named:
 
 ```text
 progress_percent
 ```
 
-This is intentional.
-
-A percentage such as:
+The Home Assistant development branch derives:
 
 ```text
 mowed_area / area × 100
 ```
 
-is a derived value and requires confirmation that both raw values:
+when:
 
-* represent the same job
-* use the same unit
-* have compatible semantics
+```text
+mowing_job_progress=True
+```
+
+This calculation is implemented and tested for the O1200 progress path.
+
+Therefore the correct limitation is **not**:
+
+```text
+progress percentage is not implemented
+```
+
+but:
+
+```text
+progress percentage is not a protocol/client field;
+it is a model-gated derived Home Assistant value
+```
 
 Status:
 
-**Derived / not directly implemented**
+**Derived / HA implemented / HA tested**
+
+Cross-model semantics remain unverified.
 
 ---
 
-# Statistics units require care
+# Estimated mowing duration: current implementation versus protocol limitation
 
-Fields such as:
+The official ECOVACS app displays an estimated duration when a mowing operation is started.
 
-```text
-area
-mowedArea
-time
-```
-
-should not automatically be presented with assumed physical units without verification.
-
-Possible risks include:
+The Home Assistant mower-progress development currently interprets:
 
 ```text
-raw value interpreted as m²
-when protocol uses another area scale
+StatsEvent.time
 ```
 
-or:
+as:
 
 ```text
-time interpreted as seconds
-when mower semantics differ
+Estimated mowing duration
 ```
 
-Integrations should only apply units once independently established.
+when the model declares:
+
+```text
+mowing_job_progress=True
+```
+
+This is implemented and covered by Home Assistant tests for the researched O1200 path.
+
+Therefore the correct current statement is:
+
+> O1200 progress development has an implemented, model-gated estimated-duration presentation based on `StatsEvent.time`.
+
+However, an important protocol limitation remains:
+
+> A separate explicit ECOVACS field such as `eta`, `estimated_duration` or `estimated_remaining_time` has not been identified.
+
+These are not contradictory.
+
+Status:
+
+```text
+O1200 HA duration interpretation:
+Implemented/tested
+
+Separate explicit ETA protocol field:
+Not identified
+```
+
+---
+
+# Estimated duration must not be generalised
+
+The model-gated Home Assistant interpretation does not prove:
+
+```text
+StatsEvent.time = estimated duration
+```
+
+for all GOAT models.
+
+Likewise, it does not prove that the value represents:
+
+```text
+estimated remaining time
+```
+
+rather than:
+
+```text
+estimated total mowing duration
+```
+
+Cross-model and in-job behaviour remain research targets.
+
+---
+
+# Statistics units require model-aware handling
+
+The Home Assistant O1200 progress path currently treats:
+
+```text
+area / mowed_area → square centimetres
+time              → seconds
+```
+
+and converts them for display.
+
+This mapping is implemented and tested in the integration.
+
+However, it should not automatically be treated as a universal protocol-unit rule for every GOAT statistics payload.
+
+Status:
+
+**Known O1200 integration mapping / cross-model verification incomplete**
+
+---
+
+# Locally calculated remaining-time ETA would be a separate concept
+
+A consumer could theoretically calculate remaining time from:
+
+```text
+elapsed time
+progress fraction
+```
+
+or from other available statistics.
+
+Such a value would be **locally derived**.
+
+It would not necessarily equal the ECOVACS app estimate, which may account for:
+
+- route planning
+- geometry
+- mowing pattern
+- speed
+- obstacles
+- charging stops
+- battery state
+- navigation overhead
+- zone transitions
+
+Any locally calculated remaining-time estimate should therefore be clearly labelled as derived.
 
 ---
 
 # Mower settings are currently O1200-focused
 
-The newly researched mower settings are wired primarily to:
+Newly researched settings are wired primarily to:
 
 ```text
 GOAT O1200 LiDAR
 hardware ID 2i0fns
 ```
 
-in the development branch.
+in development work.
 
 These include:
 
 ```text
 AI recognition
-Humanoid AI
+Humanoid AI / smart avoidance
 narrow adaptation
 animal protection
 rain delay
@@ -592,15 +625,15 @@ all GOAT models support command
 
 Differences may depend on:
 
-* navigation hardware
-* LiDAR/camera configuration
-* RTK hardware
-* product generation
-* region
-* firmware
-* accessory configuration
+- navigation hardware
+- LiDAR/camera configuration
+- RTK hardware
+- product generation
+- region
+- firmware
+- accessories
 
-Each new hardware profile should therefore be enabled from evidence rather than product-name similarity.
+New hardware-profile capabilities should be enabled from evidence rather than product-name similarity.
 
 ---
 
@@ -613,91 +646,68 @@ TrueDetect
 Recognization
 HumanoidAI
 NarrowAdapt
+Animal protection
 ```
 
-but their exact one-to-one mapping to ECOVACS app labels is not yet completely documented.
+Their exact one-to-one relationship with official app labels is not fully documented.
 
-Current architecture:
-
-```text
-known wire command
-        │
-        ▼
-known client event
-        │
-        ▼
-unknown/exact app wording
-```
-
-This means user-facing labels should be chosen conservatively until systematic app correlation is completed.
-
----
-
-# AI physical behaviour is not fully tested
-
-Python tests prove that settings can be parsed and commands can be generated.
-
-They do not prove what happens when the mower encounters an obstacle.
-
-For example, it is not yet systematically established how enabling or disabling:
-
-```text
-AI recognition
-Humanoid AI
-TrueDetect
-```
-
-changes:
-
-* obstacle clearance
-* route planning
-* stopping behaviour
-* object recognition
-* coverage around objects
-* human detection
-* animal detection
+Do not collapse them into one generic obstacle-avoidance switch.
 
 Status:
 
-**Implementation mapped / physical effects incomplete**
+**Protocol/client mapping partially established / app semantics incomplete**
 
 ---
 
-# `HumanoidAI` should not be interpreted literally
+# Physical effects of AI settings are incompletely tested
 
-The ECOVACS wire name:
+Client command/event tests verify protocol representations for AI-related settings.
+
+They do not prove all physical effects.
+
+Important remaining A/B tests include:
+
+- obstacle approach with setting OFF/ON
+- narrow passage behaviour OFF/ON
+- human/person presence where safe and appropriate
+- interaction between TrueDetect and other AI controls
+- animal-protection schedule behaviour
+
+Status:
+
+**Implementation confidence higher than behavioural confidence**
+
+---
+
+# Humanoid AI naming remains ambiguous
+
+The wire name:
 
 ```text
 HumanoidAI
 ```
 
-does not by itself prove that the feature only controls human detection.
+does not by itself prove that the setting only affects human detection.
 
-The implementation currently describes the feature as:
+The implementation currently describes it as:
 
 ```text
 Smart mowing with avoidance
 ```
 
-Until app/device testing establishes the exact scope, developer documentation should retain both:
-
-```text
-wire name: HumanoidAI
-```
-
-and:
-
-```text
-implementation description: smart mowing with avoidance
-```
-
-without adding stronger assumptions.
+Until app/physical correlation is stronger, user-facing wording should remain conservative.
 
 ---
 
-# Animal protection semantics remain incomplete
+# Animal protection configuration versus runtime state
 
-Animal protection configuration is known to contain:
+Configuration is represented by:
+
+```text
+AnimalProtectionEvent
+```
+
+with:
 
 ```text
 enabled
@@ -705,22 +715,15 @@ start
 end
 ```
 
-The runtime protection state also exposes:
+Runtime protection is separately represented through:
 
 ```text
-isAnimProtect
+ProtectStateEvent.is_anim_protect
 ```
 
-What remains to be conclusively mapped is the physical behaviour during that active window.
+The exact relationship between schedule boundaries and runtime transitions is not fully established.
 
-Questions include:
-
-* Does mowing stop completely?
-* Does mower speed change?
-* Is obstacle recognition enhanced?
-* Is only night-time operation affected?
-* What happens when a job is already active when the window begins?
-* Does mowing automatically resume when the window ends?
+Animal protection should not automatically be described as a generic "night restriction".
 
 Status:
 
@@ -728,99 +731,79 @@ Status:
 
 ---
 
-# Animal protection should not automatically be called a night restriction
+# Rain-delay lifecycle remains incomplete
 
-Because the setting contains a schedule, it is tempting to label it:
-
-```text
-night mowing restriction
-```
-
-However, this may be an oversimplification.
-
-Until app and mower behaviour are fully correlated, the documentation should retain:
+Rain configuration is well mapped:
 
 ```text
-Animal protection
+enabled
+delay
 ```
 
-as the feature name.
-
-A separate night-restriction setting may also exist.
-
----
-
-# Rain-delay lifecycle is not fully mapped
-
-Rain configuration and active rain protection are relatively well understood.
-
-Known:
-
-```text
-RainDelayEvent
-    ├── enabled
-    └── delay
-```
-
-and actual rain has been observed with:
+and actual rain has been correlated with:
 
 ```text
 isRainProtect = 1
-isRainDelay = 0
+isRainDelay   = 0
 ```
 
-What has not yet been conclusively observed is the complete transition:
-
-```text
-rain begins
-    │
-    ▼
-active rain protection
-    │
-    ▼
-rain stops
-    │
-    ▼
-post-rain delay
-    │
-    ▼
-delay expires
-    │
-    ▼
-mowing permitted again
-```
-
-In particular, the exact meaning of:
+However, the exact physical meaning of:
 
 ```text
 isRainDelay = 1
 ```
 
-should remain unconfirmed until observed in context.
+has not been conclusively observed.
+
+Likely hypothesis:
+
+```text
+post-rain waiting period
+```
+
+but this remains unconfirmed.
 
 ---
 
 # Automatic resume after rain is unresolved
 
-It is not yet fully documented whether the mower:
+The project does not yet have a complete observation of:
 
-* resumes the interrupted job automatically
-* remains paused
-* returns to dock
-* creates a new operation
-* behaves differently based on schedule
+```text
+dry
+ │
+ ▼
+rain
+ │
+ ▼
+protection
+ │
+ ▼
+rain stops
+ │
+ ▼
+configured delay
+ │
+ ▼
+resume / ready
+```
 
-after rain and post-rain delay.
+Questions remain about whether the mower:
+
+- automatically resumes the same job
+- returns to ready state
+- requires a new command
+- behaves differently based on schedule/job type
 
 Status:
 
-**Needs controlled testing**
+**Open research question**
 
 ---
 
-# Protection flags are only partially interpreted
+# Protection-state flags have uneven semantic confidence
 
-`ProtectStateEvent` contains:
+The development parser exposes:
 
 ```text
 is_anim_protect
@@ -832,93 +815,98 @@ is_pin_code
 is_prepare_data_success
 ```
 
-Parser behaviour is implemented.
+Semantic confidence differs.
 
-Semantic confidence is not equal for all fields.
+## Strongest
 
-| Field                     | Current understanding                                      |
-| ------------------------- | ---------------------------------------------------------- |
-| `is_rain_protect`         | Strong correlation with active rain                        |
-| `is_rain_delay`           | Likely related to post-rain delay; not confirmed           |
-| `is_anim_protect`         | Related to animal protection; lifecycle incomplete         |
-| `is_e_stop`               | Emergency-stop-related; trigger/reset behaviour unresolved |
-| `is_locked`               | Lock-related; relationship with child lock unresolved      |
-| `is_pin_code`             | PIN-related; exact meaning unresolved                      |
-| `is_prepare_data_success` | Internal-looking state; user-facing significance unknown   |
+```text
+is_rain_protect
+```
 
-Consumers should avoid inventing strong labels for unresolved flags.
+has direct real-rain evidence.
+
+## Partial
+
+```text
+is_anim_protect
+is_rain_delay
+is_e_stop
+```
+
+are structurally mapped but need more transition correlation.
+
+## Weak/unresolved
+
+```text
+is_locked
+is_pin_code
+is_prepare_data_success
+```
+
+should not receive strong user-facing labels without further evidence.
+
+In particular:
+
+```text
+is_locked
+```
+
+must not automatically be equated with:
+
+```text
+child_lock
+```
 
 ---
 
-# `isLocked` is not proven to equal child lock
+# GOAT map support is incomplete
 
-The client already has:
+The common client contains map abstractions primarily developed around DEEBOT devices.
 
-```text
-ChildLockEvent
-```
+GOAT map research remains separate and incomplete.
 
-from the normal child-lock setting.
-
-Separately, protection state contains:
-
-```text
-isLocked
-```
-
-These may be related, but they are separate protocol concepts.
-
-Do not assume:
-
-```text
-isLocked == ChildLockEvent.enabled
-```
-
-until tested.
-
----
-
-# `isPinCode` semantics are unknown
-
-The presence of:
-
-```text
-isPinCode
-```
-
-does not reveal whether it means:
-
-* PIN is configured
-* PIN is required
-* PIN protection is active
-* mower is unlocked
-* anti-theft mode
-* another security condition
-
-Status:
-
-**Mapped field / unresolved semantics**
-
----
-
-# Map support is incomplete for mower use
-
-The generic client has map abstractions intended largely around DEEBOT map functionality.
-
-The reviewed GOAT profiles do not currently provide a complete mower-specific map capability covering concepts such as:
+Potential mower objects include:
 
 ```text
 lawn boundary
 zones
 no-go areas
-navigation paths
-charging station
+station position
 mower position
-zone names
-mowing route
+route
+mowing trace
 ```
 
-Some of these data may exist elsewhere in the protocol, but they are not yet represented as one complete GOAT map API.
+A complete implementation needs to establish:
+
+- coordinate system
+- origin
+- scale
+- orientation
+- object IDs
+- revisions
+- geometry semantics
+- relationship to named zones
+
+Do not assume vacuum-map semantics transfer unchanged.
+
+---
+
+# Scheduling is not fully mapped
+
+The official ecosystem supports scheduled mower behaviour, but GOAT-specific schedule semantics are not yet fully documented here.
+
+A complete mapping should identify:
+
+```text
+schedule ID
+enabled state
+weekdays
+start time
+timezone
+zone selection
+mowing mode/settings
+```
 
 Status:
 
@@ -926,448 +914,262 @@ Status:
 
 ---
 
-# Static-map work is separate
+# Firmware and cloud compatibility can change
 
-Development/research work may exist around mower map handling, but map support should be documented independently from the current core mower controls until:
+ECOVACS can change:
 
-* protocol sources are identified
-* coordinate systems are understood
-* map objects are normalised
-* model differences are known
-* tests exist
+- firmware behaviour
+- cloud APIs
+- authentication requirements
+- command availability
+- protocol fields
+- app behaviour
 
-Map availability should not be implied solely because other GOAT capabilities are working.
+A feature verified on one firmware version may need re-verification after updates.
 
----
-
-# Scheduling is not yet documented as a complete client feature
-
-The ECOVACS app supports scheduled mower operation.
-
-A complete GOAT scheduling protocol/API has not yet been documented in this repository.
-
-Relevant questions include:
-
-* schedule retrieval
-* schedule creation
-* schedule deletion
-* weekday representation
-* zone selection per schedule
-* mowing mode per schedule
-* weather/protection interaction
-* timezone handling
-* seasonal behaviour
-
-Status:
-
-**Not yet documented/mapped**
+Protocol observations should record firmware/app context where practical.
 
 ---
 
-# Firmware compatibility cannot be assumed
+# Generic vacuum terminology remains in the API
 
-GOAT firmware can change protocol behaviour.
-
-A feature that works on one version may:
-
-* change field names
-* change allowed values
-* gain new options
-* stop sending a push message
-* require a new app/client version
-* become model-specific
-
-Protocol observations should therefore include firmware context wherever possible.
-
----
-
-# Cloud API compatibility can change independently
-
-Some functionality depends not only on mower firmware but also on ECOVACS cloud behaviour.
-
-Changes can occur in:
-
-```text
-authentication
-API version requirements
-cloud routing
-command validation
-device metadata
-```
-
-A mower protocol implementation that remains technically correct may still be affected by cloud-side changes.
-
----
-
-# Generic terminology remains vacuum-oriented
-
-`deebot_client` uses shared terminology such as:
+The common client still contains terms such as:
 
 ```text
 clean
 cleaning
 cleanings
 room
-CleanAction
 CleanMode
-CLEANING
+State.CLEANING
 ```
 
-For robotic lawn mowers these concepts often mean:
-
-```text
-mow
-mowing
-mowing jobs/passes
-zone
-mowing action
-mowing mode
-MOWING
-```
-
-This terminology mismatch is not necessarily a bug in the library.
-
-It reflects the shared abstraction.
-
-However, integrations should avoid exposing vacuum-oriented terms directly to mower users.
-
----
-
-# `State.CLEANING` means mowing
-
-The normalised client state:
+For mower use:
 
 ```text
 State.CLEANING
 ```
 
-is used while a GOAT is actively mowing.
+means mowing at the user-interface layer.
 
-A user-facing integration should normally present:
+This shared naming is not necessarily a bug; it reflects the common device abstraction.
 
-```text
-Mowing
-```
-
-rather than:
-
-```text
-Cleaning
-```
-
-The same principle applies throughout the shared capability architecture.
+Consumer integrations should translate terminology where appropriate.
 
 ---
 
-# `CapabilityClean` means mower operation
+# `CapabilitySettings` fields do not imply GOAT support
 
-GOAT hardware profiles currently use:
+The common capability dataclass includes settings used by many ECOVACS devices.
 
-```text
-Capabilities.clean
-```
-
-because mower operations share the common cleaning-action abstraction.
-
-This should be interpreted as:
-
-```text
-mowing-operation capability
-```
-
-for GOAT devices.
-
-Renaming the shared abstraction would be a broader architectural decision and should not be required solely for mower support.
-
----
-
-# `room` terminology in tests does not prove mower room semantics
-
-Some upstream area tests use labels such as:
-
-```text
-Rooms
-Rooms V2
-FreeClean single room 2x
-```
-
-These tests originate from shared vacuum functionality.
-
-When the same command code is used with a GOAT, documentation should instead use neutral terms such as:
-
-```text
-area identifier
-zone identifier
-selected target
-```
-
-unless the exact mower semantics have been established.
-
----
-
-# Not every `CapabilitySettings` field applies to GOAT
-
-The shared settings dataclass also contains capabilities designed for other ECOVACS products, including vacuum-related concepts.
-
-The presence of a field in:
+The existence of a field in:
 
 ```text
 CapabilitySettings
 ```
 
-does not imply GOAT support.
+does not mean GOAT supports that setting.
 
-Actual device support is determined by hardware-profile wiring.
-
-This rule also applies in reverse:
-
-new mower-specific capabilities may require expanding the generic capability model before they can be represented cleanly.
+Support is established when the hardware profile actually assigns a capability, backed by appropriate evidence.
 
 ---
 
-# Hardware profiles represent client support, not complete device specifications
+# Accessories/lifespans require care
 
-A hardware profile answers:
-
-```text
-What does deebot_client expose for this device?
-```
-
-It does not necessarily answer:
+The O1200 profile exposes additional lifespan types including:
 
 ```text
-What can this mower physically do?
-```
-
-For example, the O1200 upstream profile currently lacks an area command even though zone mowing is available through the official app.
-
-This is why hardware profiles should be interpreted as implementation declarations rather than full product feature lists.
-
----
-
-# Accessories and lifetime types require care
-
-The O1200 profile exposes lifetime types including:
-
-```text
-BLADE
-LENS_BRUSH
 WEED_ROPE
 TRIMMER_BRUSH
 ```
 
-A lifetime type being exposed by the client does not necessarily prove that every retail mower package has that accessory physically installed.
-
-Possible factors include:
-
-* optional accessories
-* shared firmware support
-* regional packages
-* future accessories
-
-Documentation should distinguish protocol capability from included hardware.
+The existence of these protocol/client lifetime types does not prove every retail configuration physically includes the corresponding accessory.
 
 ---
 
-# Availability is not the same as readiness to mow
+# Availability does not equal ready-to-mow
 
-A mower can be online and therefore:
+A device can be available/online while being unable to mow due to:
 
-```text
-available = True
-```
+- active rain protection
+- emergency stop
+- lock/security state
+- charging
+- another protection condition
+- mower error
 
-while still being unable to start mowing because of:
-
-* rain protection
-* animal protection
-* charging state
-* lock/security state
-* error state
-* emergency stop
-* another active command
-
-Integrations should therefore avoid treating generic device availability as:
-
-```text
-ready to mow
-```
-
-These are different concepts.
+Availability should therefore not be treated as equivalent to operational readiness.
 
 ---
 
-# State alone may not explain why mowing stopped
+# State alone may not explain why the mower stopped
 
-A normal mower state can say:
+The shared state model provides broad values such as:
 
 ```text
 PAUSED
-IDLE
+DOCKED
 ERROR
 ```
 
-while the reason may be represented elsewhere.
+A protection-state or error event may be needed to explain the cause.
 
-Useful additional context can include:
+For example:
 
 ```text
+mower not mowing
+```
+
+can result from very different conditions.
+
+A mature integration may need to combine:
+
+```text
+StateEvent
 ProtectStateEvent
 ErrorEvent
-ReportStatsEvent
 ```
 
-A mature mower integration may eventually need to combine multiple events to present a meaningful user-facing reason.
+rather than relying on one entity alone.
 
 ---
 
-# Integration feature parity is a separate layer
+# Home Assistant feature parity is a separate layer
 
-Even once a feature exists in `deebot_client`, Home Assistant or another consumer must explicitly expose it.
+A capability existing in `deebot_client` does not automatically mean Home Assistant exposes it.
 
-Therefore:
+Examples:
+
+- client STOP exists but reviewed HA mower entity does not expose stop
+- mower-specific settings exist in development client branches but are not yet HA entities
+- runtime protection flags are parsed but not yet exposed as GOAT binary sensors
+- O1200 progress values are exposed only in the relevant HA development work
+
+Feature matrices should therefore distinguish:
 
 ```text
-implemented in deebot_client
+client support
 ```
 
-does not automatically mean:
+from:
 
 ```text
-available as Home Assistant entity/service
+Home Assistant entity support
 ```
-
-The Home Assistant integration should be documented separately.
 
 ---
 
-# Current development branches are not upstream releases
+# Development branches are not upstream releases
 
-Features documented from branches such as:
+This repository documents active development work.
 
-```text
-feature/mower-stats-progress
-feature/ecovacs-mower-settings
-```
+Branch-level functionality can:
 
-should be labelled clearly.
+- change
+- be rebased
+- be split
+- be rejected upstream
+- be redesigned before merge
 
-Until merged upstream, users of standard released `deebot_client` should not expect those APIs to exist.
-
----
-
-# Raw logs are not suitable for publication
-
-Protocol research often requires verbose logs containing device and account metadata.
-
-These should not be published unchanged.
-
-Before committing examples, remove:
-
-* account IDs
-* authentication tokens
-* device IDs
-* serial numbers
-* Wi-Fi information
-* precise location
-* map coordinates when privacy-sensitive
-* cloud credentials
-* personally identifiable information
-
-Only minimal sanitised protocol examples should be included in public documentation.
+Documentation should therefore identify branch/review context when discussing non-upstream features.
 
 ---
 
-# Model support should be conservative
+# Raw logs should not be published
 
-When a feature is verified on O1200, documentation should state:
+ECOVACS traffic can contain:
+
+- account identifiers
+- device identifiers
+- credentials/tokens
+- Wi-Fi data
+- location/map information
+- private metadata
+
+Only sanitised examples should be committed publicly.
+
+---
+
+# Conservative model-support wording
+
+Prefer:
 
 ```text
-verified on O1200
+observed on O1200
 ```
 
-rather than:
+or:
+
+```text
+implemented for O1200 development profile
+```
+
+over:
 
 ```text
 GOAT supports this
 ```
 
-unless evidence covers additional models.
-
-Likewise:
-
-```text
-implemented in G1 profile
-```
-
-does not prove equivalent physical behaviour on every newer mower.
+unless the feature has been verified across enough models to justify the broader statement.
 
 ---
 
-# Known high-priority gaps
+# High-priority gaps
 
-The following currently appear to be the most valuable remaining research targets.
-
-| Priority | Area                   | Main missing evidence                  |
-| -------- | ---------------------- | -------------------------------------- |
-| High     | O1200 zone mowing      | Exact command and zone-ID mapping      |
-| High     | Cutting height         | GET/SET protocol and value mapping     |
-| High     | Mowing mode/efficiency | App-to-protocol mapping                |
-| High     | Mowing speed           | App-to-protocol mapping                |
-| High     | AI settings            | Exact app labels and physical effects  |
-| High     | ETA                    | Source of app estimated duration       |
-| Medium   | Rain delay             | Full rain → delay → resume lifecycle   |
-| Medium   | Animal protection      | Physical behaviour during schedule     |
-| Medium   | Zone metadata          | Names, IDs and geometry                |
-| Medium   | Scheduling             | Full mower schedule protocol           |
-| Medium   | Maps                   | GOAT-specific map/data abstraction     |
-| Medium   | Protection flags       | Lock/PIN/e-stop semantics              |
-| Medium   | Cross-model support    | Verification on additional GOAT models |
+| Priority | Gap | Why it matters |
+| --- | --- | --- |
+| High | O1200 zone command/IDs | Required for native selected-zone control |
+| High | Cutting height | Core mower setting |
+| High | Mowing mode/efficiency | Core mower behaviour |
+| High | Mowing speed | Core mower behaviour |
+| High | Cross-model progress semantics | Prevents incorrect O1200 assumptions elsewhere |
+| High | AI app-setting correlation | Required for safe user-facing labels |
+| Medium | `StatsEvent.time` in-job behaviour | Clarifies estimated-duration semantics |
+| Medium | Explicit ETA-field search | Distinguishes ECOVACS field from integration interpretation |
+| Medium | Rain-delay lifecycle | Required for accurate runtime state |
+| Medium | Animal-protection runtime | Required for accurate status/automation |
+| Medium | Zone metadata | Required for user-friendly zone names |
+| Medium | Scheduling | Important mower automation |
+| Medium | GOAT map semantics | Required for map/zone integration |
+| Medium | Protection flags | Prevents misleading security labels |
+| Medium | Cross-model setting verification | Needed before broad GOAT enablement |
 
 ---
 
-# Recommended rule for closing a limitation
+# Recommended rule for resolving a limitation
 
-A limitation should only be marked resolved after the relevant evidence exists.
-
-For a writable setting, ideal evidence is:
+For each missing feature:
 
 ```text
-app option identified
-        │
-        ▼
-GET command captured
-        │
-        ▼
-SET command captured
-        │
-        ▼
-push/update captured
-        │
-        ▼
-client implementation
-        │
-        ▼
-automated tests
-        │
-        ▼
-physical-device verification
+1. Identify official app behaviour
+2. Change one variable at a time
+3. Capture protocol traffic
+4. Identify command/message/fields
+5. Reproduce the finding
+6. Implement normalised client event/command
+7. Add automated client tests
+8. Enable only supported hardware profiles
+9. Verify physical mower behaviour
+10. Add Home Assistant representation if appropriate
+11. Update documentation and testing matrix
 ```
 
-Not every feature requires every step, but the documentation should clearly state which steps have actually been completed.
+This keeps implementation evidence separate from assumption.
 
 ---
 
 # Related documentation
 
-* [Supported models](supported-models.md)
-* [Capability architecture](capabilities.md)
-* [Mowing control](mowing-control.md)
-* [Zone and area mowing](zones-and-areas.md)
-* [Mowing progress and statistics](progress-and-statistics.md)
-* [Mower settings](settings.md)
-* [Rain and protection](rain-and-protection.md)
-* [Obstacle avoidance and AI](obstacle-and-ai.md)
-* [Protocol reference](protocol-reference.md)
-* [Testing status](testing-status.md)
-* Home Assistant integration *(next/planned)*
+- [Overview](overview.md)
+- [Supported models](supported-models.md)
+- [Capabilities](capabilities.md)
+- [Mowing control](mowing-control.md)
+- [Zones and areas](zones-and-areas.md)
+- [Progress and statistics](progress-and-statistics.md)
+- [Settings](settings.md)
+- [Rain and protection](rain-and-protection.md)
+- [Obstacle and AI](obstacle-and-ai.md)
+- [Protocol reference](protocol-reference.md)
+- [Home Assistant](home-assistant.md)
+- [Testing status](testing-status.md)
+- [Protocol observations](../research/protocol-observations.md)
