@@ -123,6 +123,7 @@ Home Assistant
 | Job progress and mowing statistics | [Progress and statistics](docs/progress-and-statistics.md) |
 | Mower settings | [Settings](docs/settings.md) |
 | O1200 zone-specific height, cut mode, obstacle height and angle | [O1200 area parameters](docs/area-parameters.md) |
+| O1200 area IDs and human-readable zone names | [O1200 area names](docs/area-names.md) |
 | Rain behaviour and protection states | [Rain and protection](docs/rain-and-protection.md) |
 | Obstacle avoidance and AI settings | [Obstacle and AI](docs/obstacle-and-ai.md) |
 | Commands, messages and protocol fields | [Protocol reference](docs/protocol-reference.md) |
@@ -260,6 +261,7 @@ The strongest current implementation and test coverage includes:
 - maintenance/lifespan information
 - common mower settings
 - O1200 zone-specific area-parameter protocol (`mowHeightLevel`, `cutMode`, `obstacleHeight`, `angle`)
+- O1200 area-name/ID mapping through `getAreaSet` / `RoomsEvent`
 - O1200 current-job progress
 - O1200 rain configuration
 - active rain-protection state
@@ -277,9 +279,9 @@ Important areas still requiring additional work include:
 - determining the exact meaning/unit of O1200 `obstacleHeight`
 - clarifying the relationship between zone-specific `angle` and global `cut_direction`
 - mowing speed
-- O1200 selected-zone start command and zone metadata
-- zone names and metadata
-- multi-zone behaviour
+- O1200 selected-zone start command and confirmation that its target uses the known area IDs
+- multi-zone start behaviour and ordering
+- cross-model area-name support
 - exact ECOVACS app mapping of AI settings
 - physical effect of each avoidance/AI setting
 - complete post-rain delay lifecycle
@@ -359,6 +361,7 @@ O1200 progress development additionally includes:
 - area mowed
 - mowing progress percentage
 - estimated mowing duration
+- O1200 area names/IDs as mower `rooms` metadata in the area-name development branch
 
 Additional mower configuration and runtime state can eventually be exposed through appropriate Home Assistant entity types such as:
 
@@ -587,6 +590,7 @@ deebot-goat-docs/
 │   ├── progress-and-statistics.md
 │   ├── settings.md
 │   ├── area-parameters.md
+│   ├── area-names.md
 │   ├── rain-and-protection.md
 │   ├── obstacle-and-ai.md
 │   ├── protocol-reference.md
