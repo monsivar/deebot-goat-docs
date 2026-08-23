@@ -122,6 +122,7 @@ Home Assistant
 | Lawn zones and area mowing | [Zones and areas](docs/zones-and-areas.md) |
 | Job progress and mowing statistics | [Progress and statistics](docs/progress-and-statistics.md) |
 | Mower settings | [Settings](docs/settings.md) |
+| O1200 global rain, AI, animal-protection and volume settings | [O1200 global settings](docs/o1200-global-settings.md) |
 | O1200 zone-specific height, cut mode, obstacle height and angle | [O1200 area parameters](docs/area-parameters.md) |
 | O1200 area IDs and human-readable zone names | [O1200 area names](docs/area-names.md) |
 | Rain behaviour and protection states | [Rain and protection](docs/rain-and-protection.md) |
@@ -261,6 +262,7 @@ The strongest current implementation and test coverage includes:
 - maintenance/lifespan information
 - common mower settings
 - O1200 zone-specific area-parameter protocol (`mowHeightLevel`, `cutMode`, `obstacleHeight`, `angle`)
+- O1200 global rain, AI, animal-protection and mower-volume protocol
 - O1200 area-name/ID mapping through `getAreaSet` / `RoomsEvent`
 - O1200 current-job progress
 - O1200 rain configuration
@@ -590,6 +592,7 @@ deebot-goat-docs/
 │   ├── progress-and-statistics.md
 │   ├── settings.md
 │   ├── area-parameters.md
+│   ├── o1200-global-settings.md
 │   ├── area-names.md
 │   ├── rain-and-protection.md
 │   ├── obstacle-and-ai.md
