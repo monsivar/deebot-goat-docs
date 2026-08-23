@@ -1,13 +1,15 @@
 # GOAT testing status
 
-This page tracks the implementation and verification status of ECOVACS GOAT mower functionality documented in this repository.
+This page tracks implementation, automated-test, protocol-observation and physical-device verification status for ECOVACS GOAT mower functionality documented in this repository.
 
 Last reviewed against:
 
-* upstream `DeebotUniverse/client.py` `dev`
-* `feature/mower-stats-progress`
-* `feature/ecovacs-mower-settings`
-* GOAT protocol observations and physical-device tests from this research project
+- upstream `DeebotUniverse/client.py` `dev`
+- `feature/mower-stats-progress`
+- `feature/ecovacs-mower-settings`
+- `feature/ecovacs-mower-rain-settings`
+- Home Assistant branch `feature/ecovacs-mower-progress`
+- GOAT protocol observations and physical-device tests from this research project
 
 Date: **2026-08-23**
 
@@ -24,7 +26,7 @@ Protocol field observed
 Python implementation
         │
         ▼
-Automated parser/command tests
+Automated client tests
         │
         ▼
 Hardware capability enabled
@@ -33,33 +35,37 @@ Hardware capability enabled
 Physical mower behaviour verified
         │
         ▼
-Integration behaviour verified
+Home Assistant integration
+        │
+        ▼
+Home Assistant tests
 ```
 
 These levels should not be treated as equivalent.
-
-This page therefore records them separately.
 
 ---
 
 # Status definitions
 
-| Status                | Meaning                                                       |
-| --------------------- | ------------------------------------------------------------- |
-| **Upstream**          | Implemented in current upstream `DeebotUniverse/client.py`    |
-| **Fork**              | Implemented in a development branch but not reviewed upstream |
-| **Python tested**     | Covered by automated client tests                             |
-| **Protocol observed** | Relevant data or command was seen in real GOAT communication  |
-| **Device tested**     | Physical mower behaviour was exercised and correlated         |
-| **App observed**      | Behaviour or value was confirmed in the ECOVACS app           |
-| **Unverified**        | Interpretation or physical effect remains uncertain           |
-| **Not mapped**        | No confirmed client/protocol implementation yet               |
+| Status | Meaning |
+| --- | --- |
+| **Upstream** | Implemented in reviewed upstream `DeebotUniverse/client.py` |
+| **Fork** | Implemented in a development branch but not reviewed upstream |
+| **Python tested** | Covered by automated `deebot_client` tests |
+| **Protocol observed** | Relevant data/command observed in real GOAT communication |
+| **Device tested** | Physical mower behaviour exercised and correlated |
+| **App observed** | Behaviour/value confirmed in the official ECOVACS app |
+| **HA implemented** | Implemented in the Home Assistant development branch |
+| **HA tested** | Covered by Home Assistant automated tests |
+| **Derived** | Calculated from other fields rather than directly supplied |
+| **Unverified** | Interpretation or physical effect remains uncertain |
+| **Not mapped** | No confirmed protocol/client implementation yet |
 
 ---
 
 # Important distinction
 
-An automated Python test proves that:
+An automated client test proves that:
 
 ```text
 given payload
@@ -79,57 +85,59 @@ It does **not** automatically prove:
 physical mower
     │
     ▼
-actually behaves as assumed
+behaves as assumed
 ```
 
-Likewise, observing an app option does not automatically identify its ECOVACS wire command.
-
-This distinction is especially important for AI, obstacle and protection settings.
+Likewise, a Home Assistant test can prove that an event is exposed correctly as an entity without proving that the underlying ECOVACS protocol interpretation applies to every mower model.
 
 ---
 
 # Overall status matrix
 
-| Feature                         | Upstream |   Fork  |  Python tested |             Protocol observed             |               Device/app tested               | Current confidence             |
-| ------------------------------- | :------: | :-----: | :------------: | :---------------------------------------: | :-------------------------------------------: | ------------------------------ |
-| Device identified as mower      |     ✓    |    —    |        ✓       |                     —                     |                       ✓                       | High                           |
-| Battery                         |     ✓    |    —    |        ✓       |                     ✓                     |                       ✓                       | High                           |
-| Return to dock                  |     ✓    |    —    |        ✓       |                     ✓                     |                       ✓                       | High                           |
-| Start mowing                    |     ✓    |    —    |        ✓       |                     ✓                     |                       ✓                       | High                           |
-| Pause mowing                    |     ✓    |    —    |        ✓       |                     ✓                     |                       ✓                       | High                           |
-| Resume mowing                   |     ✓    |    —    |        ✓       |                     ✓                     |                       ✓                       | High                           |
-| Stop mowing                     |     ✓    |    —    |        ✓       |                     ✓                     |                       ✓                       | High                           |
-| Selected-zone mowing            |  Partial |    —    |    ✓ generic   |                     ✓                     |                       ✓                       | Medium                         |
-| O1200 area capability           |     —    |    —    |        —       |                ✓ behaviour                |                       ✓                       | Open implementation gap        |
-| Current mower state             |     ✓    |    —    |        ✓       |                     ✓                     |                       ✓                       | High                           |
-| Statistics                      |     ✓    |    —    |        ✓       |                     ✓                     |                       ✓                       | High                           |
-| `mowedArea` progress data       |     —    |    ✓    |        ✓       |                     ✓                     |                 ✓ protocol/app                | High for O1200 data field      |
-| Calculated mowing percentage    |     —    |    —    |        —       |                 derivable                 |                       —                       | Derived, not implemented       |
-| App estimated duration          |     —    |    —    |        —       |                 Unresolved                |                       ✓                       | App observed only              |
-| Border switch                   |     ✓    |    —    | existing tests |                     —                     |                 project-tested                | Medium/High                    |
-| Cutting direction               |     ✓    |    —    | existing tests |                     —                     |         not systematically documented         | Medium                         |
-| Child lock                      |     ✓    |    —    | existing tests |                     —                     |         not systematically documented         | Medium                         |
-| Move-up warning                 |     ✓    |    —    | existing tests |           ✓ push support in fork          |         not systematically documented         | Medium                         |
-| Cross-map border warning        |     ✓    |    —    | existing tests |                     —                     |         not systematically documented         | Medium                         |
-| Safe protect                    |     ✓    |    —    | existing tests |                     —                     |              semantics incomplete             | Medium                         |
-| TrueDetect                      |     ✓    |    —    | existing tests |                     —                     |           physical effect not mapped          | Medium                         |
-| System volume                   |     ✓    | refined |        ✓       |                     ✓                     |         not systematically documented         | High implementation confidence |
-| Lifted-alarm volume             |     —    |    ✓    |        ✓       |                     ✓                     | physical effect not systematically documented | Medium/High                    |
-| Rain configuration              |     —    |    ✓    |        ✓       |                     ✓                     |                       ✓                       | High for O1200                 |
-| Active rain protection          |     —    |    ✓    |        ✓       |                     ✓                     |                       ✓                       | High for observed state        |
-| Post-rain delay runtime state   |     —    |    ✓    |  parser tested |                  partial                  |               not fully observed              | Low/Medium                     |
-| AI recognition                  |     —    |    ✓    |        ✓       | implementation based on captured protocol |           physical effect not mapped          | Medium                         |
-| Humanoid AI / smart avoidance   |     —    |    ✓    |        ✓       | implementation based on captured protocol |           physical effect not mapped          | Medium                         |
-| Narrow passage adaptation       |     —    |    ✓    |        ✓       | implementation based on captured protocol |           physical effect not mapped          | Medium                         |
-| Animal protection configuration |     —    |    ✓    |        ✓       | implementation based on captured protocol |        physical effect not fully mapped       | Medium                         |
-| Animal protection runtime flag  |     —    |    ✓    |        ✓       |                     ✓                     |          transition not fully tested          | Medium                         |
-| Emergency-stop flag             |     —    |    ✓    |        ✓       |           field observed/mapped           |              behaviour not mapped             | Low/Medium                     |
-| Locked-state flag               |     —    |    ✓    |        ✓       |           field observed/mapped           |       relationship to child lock unknown      | Low/Medium                     |
-| PIN-code flag                   |     —    |    ✓    |        ✓       |           field observed/mapped           |               semantics unknown               | Low                            |
-| Cutting height                  |     —    |    —    |        —       |                     —                     |       app/model feature requires mapping      | Not mapped                     |
-| GOAT mowing efficiency/mode     |     —    |    —    |        —       |                     —                     |                requires mapping               | Not mapped                     |
-| Mowing speed                    |     —    |    —    |        —       |                     —                     |                requires mapping               | Not mapped                     |
-| Explicit protocol ETA           |     —    |    —    |        —       |               not identified              |               app value observed              | Not mapped                     |
+| Feature | Upstream | Fork | Python tested | Protocol observed | Device/app tested | HA status | Current confidence |
+| --- | :---: | :---: | :---: | :---: | :---: | --- | --- |
+| Device identified as mower | ✓ | — | ✓ | — | ✓ | Implemented | High |
+| Battery | ✓ | — | ✓ | ✓ | ✓ | Implemented | High |
+| Return to dock | ✓ | — | ✓ | ✓ | ✓ | Implemented/tested | High |
+| Start mowing | ✓ | — | ✓ | ✓ | ✓ | Implemented/tested | High |
+| Pause mowing | ✓ | — | ✓ | ✓ | ✓ | Implemented/tested | High |
+| Resume mowing | ✓ | — | ✓ | ✓ | ✓ | Via state-aware START path | High |
+| Stop mowing | ✓ | — | ✓ | ✓ | ✓ | Not exposed as lawn_mower feature | High client confidence |
+| Selected-zone mowing | Partial | — | Generic tests | ✓ behaviour | ✓ | Not exposed | Medium |
+| O1200 area capability | — | — | — | Behaviour confirmed | ✓ | Not exposed | Open implementation gap |
+| Current mower state | ✓ | — | ✓ | ✓ | ✓ | Implemented/tested | High |
+| Common statistics | ✓ | — | ✓ | ✓ | ✓ | Implemented | High |
+| `mowedArea` | — | ✓ | ✓ | ✓ | ✓ protocol/app | Implemented for progress path | High for O1200 field |
+| `mowing_job_progress` flag | — | ✓ | ✓ via integration use | — | — | Implemented/tested | High implementation confidence |
+| Current area mowed | — | ✓ raw field | ✓ | ✓ | ✓ | Implemented/tested | High for O1200 path |
+| Mowing progress percentage | — | — | — | Derived | — | Implemented/tested | High as derived O1200 value |
+| `StatsEvent.time` as estimated duration | — | Model semantic flag | — | Source semantics partly unresolved | App estimate observed | Implemented/tested | Medium/High for current O1200 integration |
+| Separate explicit ETA field | — | — | — | Not identified | App value observed | — | Not mapped |
+| Border switch | ✓ | — | existing tests | project evidence | project-tested | Generic switch architecture | Medium/High |
+| Cutting direction | ✓ | — | existing tests | — | not systematic | Number architecture | Medium |
+| Child lock | ✓ | — | existing tests | — | not systematic | Generic switch architecture | Medium |
+| Move-up warning | ✓ | message refinement | existing tests | push mapped | not systematic | Generic switch architecture | Medium |
+| Cross-map border warning | ✓ | — | existing tests | — | not systematic | Generic switch architecture | Medium |
+| Safe protect | ✓ | — | existing tests | — | semantics incomplete | Generic switch architecture | Medium |
+| TrueDetect | ✓ | — | existing tests | — | physical effect not mapped | Generic switch architecture | Medium |
+| System volume | ✓ | refined | ✓ | ✓ | not systematic | Number architecture | High implementation confidence |
+| Lifted-alarm volume | — | ✓ | ✓ | ✓ | physical effect not systematic | Not yet exposed | Medium/High |
+| Rain configuration | — | ✓ | ✓ | ✓ | ✓ | Not yet exposed | High for O1200 |
+| Active rain protection | — | ✓ | ✓ | ✓ | ✓ real rain | Not yet exposed | High for observed state |
+| Post-rain delay runtime state | — | ✓ | parser tested | partial | not fully observed | Not yet exposed | Low/Medium |
+| AI recognition | — | ✓ | ✓ | captured/mapped | physical effect not mapped | Not yet exposed | Medium |
+| Humanoid AI / smart avoidance | — | ✓ | ✓ | captured/mapped | physical effect not mapped | Not yet exposed | Medium |
+| Narrow passage adaptation | — | ✓ | ✓ | captured/mapped | physical effect not mapped | Not yet exposed | Medium |
+| Animal protection configuration | — | ✓ | ✓ | captured/mapped | physical effect incomplete | Not yet exposed | Medium |
+| Animal protection runtime flag | — | ✓ | ✓ | ✓ | transitions incomplete | Not yet exposed | Medium |
+| Emergency-stop flag | — | ✓ | ✓ | field mapped | behaviour not mapped | Not yet exposed | Low/Medium |
+| Locked-state flag | — | ✓ | ✓ | field mapped | child-lock relation unknown | Not yet exposed | Low/Medium |
+| PIN-code flag | — | ✓ | ✓ | field mapped | semantics unknown | Not yet exposed | Low |
+| Cutting height | — | — | — | — | app/model feature requires mapping | — | Not mapped |
+| GOAT mowing efficiency/mode | — | — | — | — | requires mapping | — | Not mapped |
+| Mowing speed | — | — | — | — | requires mapping | — | Not mapped |
+| Scheduling | Partial generic ecosystem only | — | — | GOAT mapping incomplete | App feature area | — | Not mapped for GOAT |
+| GOAT map semantics | Partial generic client map support | separate research | — | incomplete | app/device mapping exists | separate work | Incomplete |
 
 ---
 
@@ -137,7 +145,7 @@ This distinction is especially important for AI, obstacle and protection setting
 
 The basic mowing lifecycle currently has the strongest end-to-end evidence.
 
-The following sequence has been exercised on a physical GOAT while protocol behaviour was observed:
+The sequence exercised on a physical GOAT while protocol behaviour was observed includes:
 
 ```text
 START
@@ -161,7 +169,7 @@ MOWING
 STOP
 ```
 
-Return to charging station was also tested separately:
+Return to the charging station was also exercised separately:
 
 ```text
 RETURN TO DOCK
@@ -184,7 +192,7 @@ GetChargeState
 
 Status:
 
-**Upstream implemented / Python tested / protocol observed / device tested**
+**Upstream / Python tested / Protocol observed / Device tested**
 
 Confidence:
 
@@ -194,9 +202,9 @@ Confidence:
 
 # Start/resume state handling
 
-The shared client automatically handles some START/RESUME mismatches.
+The shared client automatically handles START/RESUME mismatches.
 
-Examples:
+Conceptually:
 
 ```text
 START requested while PAUSED
@@ -214,11 +222,77 @@ RESUME requested while not PAUSED
 START sent
 ```
 
-This behaviour is covered by upstream automated tests.
+This is covered by client tests.
+
+The Home Assistant mower entity can therefore use its start action without needing a separate user-facing resume feature.
+
+---
+
+# Home Assistant mower entity
+
+The development Home Assistant integration exposes mower devices using:
+
+```text
+lawn_mower
+```
+
+and currently supports:
+
+```text
+START_MOWING
+PAUSE
+DOCK
+```
+
+Automated tests verify that these call:
+
+```text
+CleanV2(CleanAction.START)
+CleanV2(CleanAction.PAUSE)
+Charge()
+```
+
+respectively.
+
+The state mapping includes:
+
+```text
+State.CLEANING → MOWING
+State.RETURNING → RETURNING
+State.DOCKED → DOCKED
+State.ERROR → ERROR
+State.PAUSED → PAUSED
+State.IDLE → PAUSED
+```
+
+The `IDLE → PAUSED` mapping is an integration compromise, not a physical mower semantic claim.
+
+---
+
+# Stop mowing in Home Assistant
+
+The client supports:
+
+```text
+CleanAction.STOP
+```
+
+and physical stop behaviour has been observed.
+
+The reviewed Home Assistant mower entity does not expose a corresponding stop feature.
+
+Therefore:
+
+```text
+client STOP support
+       │
+       ▼
+Home Assistant integration gap
+```
 
 Status:
 
-**Upstream / Python tested**
+**Client supported / Device tested / HA not exposed**
 
 ---
 
@@ -246,7 +320,7 @@ stop
 
 was observed.
 
-The generic upstream client also implements and tests:
+The generic upstream client implements and tests:
 
 ```text
 CleanAreaV2
@@ -260,11 +334,11 @@ customArea
 freeClean
 ```
 
-However, the exact mapping between GOAT zone IDs and the generic modes is not yet fully established.
+However, the exact GOAT zone-ID relationship is not fully established.
 
 Status:
 
-**Generic upstream implementation / upstream Python tests / GOAT device behaviour observed**
+**Generic upstream implementation / Generic Python tests / GOAT behaviour observed**
 
 Confidence:
 
@@ -274,30 +348,24 @@ Confidence:
 
 # O1200 selected-zone implementation gap
 
-The reviewed upstream O1200 hardware profile does not currently expose:
-
-```text
-CleanAreaV2
-```
-
-through:
+The reviewed upstream O1200 hardware profile does not expose:
 
 ```text
 CapabilityCleanAction.area
 ```
 
-despite selected-zone mowing being available on the physical mower/app.
+despite the physical mower/app supporting selected-zone mowing.
 
-This should currently be tracked as:
+Current state:
 
 ```text
 Physical capability exists
         │
         ▼
-protocol mapping needs confirmation
+exact O1200 protocol mapping still needs confirmation
         │
         ▼
-deebot_client hardware capability missing
+client hardware capability missing
 ```
 
 Status:
@@ -306,7 +374,7 @@ Status:
 
 ---
 
-# Current mowing statistics
+# Common mowing statistics
 
 Upstream already implements:
 
@@ -318,15 +386,17 @@ GetStats
 GetTotalStats
 ```
 
-and GOAT hardware profiles expose the common statistics capability.
+and all reviewed GOAT hardware profiles expose the common statistics capability.
 
 Status:
 
-**Upstream / Python tested / device-protocol relevant**
+**Upstream / Python tested**
 
 Confidence:
 
-**High**
+**High for the architecture**
+
+Optional mower-specific fields and semantics still require model evidence.
 
 ---
 
@@ -344,7 +414,7 @@ adds:
 StatsEvent.mowed_area
 ```
 
-from ECOVACS field:
+from ECOVACS:
 
 ```text
 mowedArea
@@ -361,9 +431,9 @@ and covered by automated tests.
 
 Status:
 
-**Fork / Python tested / protocol observed**
+**Fork / Python tested / Protocol observed**
 
-Current strongest model evidence:
+Strongest current model evidence:
 
 ```text
 GOAT O1200
@@ -375,7 +445,7 @@ Confidence:
 
 ---
 
-# Mowing progress percentage
+# O1200 mowing progress percentage
 
 No dedicated:
 
@@ -383,53 +453,125 @@ No dedicated:
 progress_percent
 ```
 
-field has been added to `deebot_client`.
+field is added to `deebot_client`.
 
-A percentage may potentially be derived from:
+The Home Assistant development branch derives:
 
 ```text
-mowed_area / area
+mowed_area / area * 100
 ```
 
-if the two values are confirmed to represent completed and total target area in matching units.
+when the hardware profile declares:
+
+```text
+mowing_job_progress=True
+```
+
+The calculation is covered by automated Home Assistant tests, including missing/zero-value cases.
 
 Status:
 
-**Derived concept**
+**Derived / HA implemented / HA tested**
 
-Confidence:
-
-**Requires semantic/unit verification before integration exposure**
+This corrects an earlier project-documentation state where the percentage was described only as a possible future integration calculation.
 
 ---
 
-# Estimated mowing duration
+# O1200 estimated mowing duration
 
-The ECOVACS app displays an estimated duration when a mowing job is started.
+The official ECOVACS app displays an estimated duration for a mowing job.
 
-This has been observed at the application level.
-
-A corresponding explicit protocol field has not yet been identified in the current implementation.
-
-The progress branch does not add an ETA field.
-
-Status:
-
-**App observed / protocol source unresolved / not implemented**
-
-This should remain separate from:
+The current Home Assistant progress development interprets:
 
 ```text
 StatsEvent.time
 ```
 
-until the exact semantics are established.
+as:
+
+```text
+Estimated mowing duration
+```
+
+when:
+
+```text
+mowing_job_progress=True
+```
+
+The sensor is configured as a duration value with native seconds and suggested display in minutes.
+
+Automated Home Assistant tests verify this representation.
+
+Status:
+
+**HA implemented / HA tested / App observed**
+
+Important limitation:
+
+The project has **not** identified a separate explicit ECOVACS protocol field named ETA/remaining-time/estimated-duration.
+
+Therefore this should be described as:
+
+> a model-specific interpretation of the existing statistics field used by the O1200 progress integration
+
+rather than:
+
+> a universal ECOVACS ETA field
+
+Confidence:
+
+**Medium/High for the current O1200 integration semantics; unresolved as a universal protocol rule**
+
+---
+
+# O1200 progress units
+
+The Home Assistant progress path currently uses:
+
+```text
+area / mowed_area → square centimetres
+time              → seconds
+```
+
+and converts them for display.
+
+Automated tests verify examples including:
+
+```text
+28699 → 2.8699 m²
+2304 s → 38.4 min
+```
+
+Status:
+
+**HA implemented / HA tested**
+
+These should remain model/path-specific until cross-model verification is available.
+
+---
+
+# Separate explicit ETA field
+
+No dedicated normalised client field has been identified such as:
+
+```text
+eta
+estimated_remaining_time
+estimated_duration
+```
+
+Status:
+
+**Not mapped**
+
+This remains a separate research question from the existing O1200 `StatsEvent.time` interpretation.
 
 ---
 
 # Rain configuration
 
-The mower development branch implements:
+The mower development work implements:
 
 ```text
 SetRainDelay
@@ -458,13 +600,11 @@ in:
 
 Automated tests cover accepted and rejected values.
 
-Protocol configuration has also been correlated during GOAT research.
-
 Status:
 
-**Fork / Python tested / protocol observed / device tested**
+**Fork / Python tested / Protocol observed / Device tested**
 
-Current strongest model evidence:
+Strongest current model evidence:
 
 ```text
 GOAT O1200
@@ -497,21 +637,21 @@ The development branch preserves this in:
 ProtectStateEvent
 ```
 
-and the actual-rain example is represented in automated test coverage.
+and the observation is represented in test fixtures.
 
 Status:
 
-**Fork / Python tested / protocol observed during real rain**
+**Fork / Python tested / Protocol observed during real rain**
 
 Confidence:
 
-**High for `isRainProtect` active-rain interpretation**
+**High for `isRainProtect` in the observed state**
 
 ---
 
 # `isRainDelay`
 
-The parser and boolean conversion for:
+Parsing and boolean conversion for:
 
 ```text
 isRainDelay
@@ -519,7 +659,7 @@ isRainDelay
 
 are implemented and tested.
 
-However, the physical transition represented by:
+However, the physical condition represented by:
 
 ```text
 isRainDelay = 1
@@ -533,7 +673,7 @@ A likely hypothesis is:
 post-rain waiting period
 ```
 
-but it should remain unconfirmed until directly observed.
+but this remains unconfirmed.
 
 Status:
 
@@ -541,7 +681,7 @@ Status:
 
 Confidence:
 
-**Low to medium**
+**Low/Medium**
 
 ---
 
@@ -567,18 +707,13 @@ Field:
 state
 ```
 
-Automated tests verify both:
-
-```text
-state = 0
-state = 1
-```
+Automated tests verify enabled and disabled values.
 
 Status:
 
 **Fork / Python tested**
 
-The exact physical effect and ECOVACS app label still require systematic mapping.
+Exact app wording and physical effect remain open.
 
 Confidence:
 
@@ -608,21 +743,17 @@ Field:
 enable
 ```
 
-The implementation describes this feature as:
+Implementation description:
 
 ```text
 Smart mowing with avoidance
 ```
 
-Automated tests verify enabled/disabled parsing and commands.
-
 Status:
 
 **Fork / Python tested**
 
-Physical behavioural effect:
-
-**Not yet systematically verified**
+Do not infer that this setting only concerns human detection from the wire name alone.
 
 Confidence:
 
@@ -640,7 +771,7 @@ setNarrowAdapt
 onNarrowAdapt
 ```
 
-Event:
+Normalised event:
 
 ```text
 NarrowAdaptEvent
@@ -652,20 +783,11 @@ Field:
 state
 ```
 
-Automated tests cover both states.
-
 Status:
 
 **Fork / Python tested**
 
-Still requiring physical verification:
-
-```text
-minimum passage width
-route-planning effect
-mowing behaviour inside passages
-clearance changes
-```
+Physical navigation effect still needs systematic A/B testing.
 
 Confidence:
 
@@ -675,15 +797,13 @@ Confidence:
 
 # Animal protection
 
-The development implementation supports:
+Configuration is represented by:
 
 ```text
-getAnimProtect
-setAnimProtect
-onAnimProtect
+AnimalProtectionEvent
 ```
 
-Configuration:
+with:
 
 ```text
 enabled
@@ -691,31 +811,27 @@ start
 end
 ```
 
-Automated tests verify both parsing and time normalisation.
-
-Example:
+and commands/messages:
 
 ```text
-6:30
+getAnimProtect
+setAnimProtect
+onAnimProtect
 ```
 
-is normalised to:
+The development tests verify time normalisation and configuration parsing.
+
+Runtime state is separately represented through:
 
 ```text
-06:30
+ProtectStateEvent.is_anim_protect
 ```
 
 Status:
 
-**Fork / Python tested**
+**Fork / Python tested / Protocol mapped**
 
-The runtime protection message also contains:
-
-```text
-isAnimProtect
-```
-
-but the exact physical relationship between the schedule and runtime flag remains to be fully verified.
+Physical schedule transitions and behaviour remain incomplete.
 
 Confidence:
 
@@ -723,418 +839,174 @@ Confidence:
 
 ---
 
-# Protection-state flags
+# Other protection-state flags
 
-`ProtectStateEvent` currently contains:
+Mapped fields include:
 
 ```text
-is_anim_protect
-is_rain_protect
-is_rain_delay
+isEStop
+isLocked
+isPinCode
+isPrepareDataSuccess
+```
+
+Their Python forms are:
+
+```text
 is_e_stop
 is_locked
 is_pin_code
 is_prepare_data_success
 ```
 
-All fields are parsed as booleans and automated tests cover conversion.
+Parsing is implemented.
 
-However, confidence differs per field.
+However:
 
-| Field                     | Parser confidence | Semantic confidence           |
-| ------------------------- | ----------------- | ----------------------------- |
-| `is_rain_protect`         | High              | High for observed active rain |
-| `is_rain_delay`           | High              | Low/Medium                    |
-| `is_anim_protect`         | High              | Medium                        |
-| `is_e_stop`               | High              | Low/Medium                    |
-| `is_locked`               | High              | Low                           |
-| `is_pin_code`             | High              | Low                           |
-| `is_prepare_data_success` | High              | Low                           |
+- `is_locked` is not proven to be identical to child lock
+- `is_pin_code` semantics remain unresolved
+- `is_prepare_data_success` has no established normal user-facing meaning
+- emergency-stop transitions should be directly correlated before strong UI wording is used
 
-This is a good example of why:
+Confidence:
 
-```text
-parser confidence
-```
-
-and:
-
-```text
-semantic confidence
-```
-
-should be tracked independently.
+**Low to Medium depending on field**
 
 ---
 
 # TrueDetect
 
-`TrueDetect` is already implemented upstream through:
-
-```text
-GetTrueDetect
-SetTrueDetect
-TrueDetectEvent
-```
-
-and exposed by reviewed GOAT profiles.
-
-Implementation confidence:
-
-**High**
-
-GOAT-specific physical interpretation:
-
-**Not yet systematically mapped**
-
-The existence of the setting should therefore not be confused with complete knowledge of its real-world avoidance effect.
-
----
-
-# Border/edge behaviour
-
-Upstream exposes:
-
-```text
-BorderSwitchEvent
-GetBorderSwitch
-SetBorderSwitch
-```
-
-and border/edge behaviour has been part of the GOAT investigation.
+TrueDetect is implemented in reviewed upstream profiles.
 
 Status:
 
 **Upstream implemented**
 
-Physical/app correlation has been investigated in the project, but model-specific behaviour should continue to be documented separately where necessary.
+The exact GOAT app label and physical relationship to other AI/avoidance settings are not fully mapped.
 
 Confidence:
 
-**Medium to high**
+**High implementation confidence / Medium semantic confidence**
 
 ---
 
-# Volume channels
+# Volume
 
-Normal system volume is already supported upstream.
+System volume is supported upstream.
 
-The mower development branch additionally distinguishes:
-
-```text
-system volume
-```
-
-from:
-
-```text
-lifted/fall alarm volume
-```
-
-through the same ECOVACS:
-
-```text
-getVolume
-setVolume
-```
-
-protocol family.
-
-Automated tests cover the mower-specific parsing and payloads.
+Development work also adds a separate lifted-alarm/fall volume interpretation using the same protocol command family.
 
 Status:
 
-**Upstream + fork refinement / Python tested**
+```text
+System volume:
+Upstream
 
-Confidence:
+Lifted-alarm volume:
+Fork / Python tested
+```
 
-**High implementation confidence**
+The physical effect of the latter has not been systematically documented.
 
 ---
 
-# Not-yet-mapped settings
+# Not-yet-mapped mower settings
 
-The following remain explicit research targets.
+The following remain important protocol-research targets:
 
-## Cutting height
+```text
+cutting height
+GOAT mowing efficiency/mode
+mowing speed
+```
 
 Status:
 
 **Not mapped**
 
-Needed evidence:
-
-```text
-wire command
-valid values
-unit
-GET response
-SET payload
-model support
-physical change
-```
-
----
-
-## Mowing efficiency / mode
-
-Status:
-
-**Not mapped for GOAT**
-
-The existence of a generic:
-
-```text
-efficiency_mode
-```
-
-capability elsewhere in `deebot_client` is not sufficient evidence that GOAT uses the same protocol.
-
----
-
-## Mowing speed
-
-Status:
-
-**Not mapped**
-
-Needed evidence includes:
-
-```text
-ECOVACS app options
-wire command
-value mapping
-model support
-physical speed difference
-```
-
----
-
-## Explicit ETA
-
-Status:
-
-**App observed / protocol not mapped**
-
-The goal is to determine whether ECOVACS supplies:
-
-```text
-estimated duration
-```
-
-or whether the app calculates it from other data.
-
----
-
-# Automated-test coverage summary
-
-The mower development work includes dedicated tests for areas such as:
-
-```text
-mower settings commands
-mower setting push messages
-hardware capability wiring
-animal protection
-rain delay
-protection state
-volume channels
-mowing statistics progress
-```
-
-This is important because newly mapped features are not merely registered in a hardware profile; their payload parsing and capability wiring are also exercised.
-
----
-
-# Physical-device evidence rules
-
-Use:
-
-```text
-Device tested
-```
-
-only when actual mower behaviour was exercised.
-
-Use:
-
-```text
-Protocol observed
-```
-
-when a real mower/app communication payload was captured but the physical effect was not necessarily tested.
-
-Use:
-
-```text
-Python tested
-```
-
-for unit/integration tests using fixtures or constructed payloads.
-
-Examples:
-
-```text
-SetRainDelay rejects 15 minutes
-    → Python tested
-
-isRainProtect = 1 during actual rain
-    → Protocol/device observed
-
-HumanoidAI parser accepts enable = 1
-    → Python tested
-
-HumanoidAI changes physical avoidance distance
-    → not yet verified
-```
+No speculative Home Assistant entities should be created until their protocol semantics and valid values are established.
 
 ---
 
 # Firmware context
 
-Where possible, physical/protocol testing should record mower firmware.
+Mower behaviour can differ across firmware versions.
 
-Some current mower-related test fixtures use:
+Some O1200 development fixtures use firmware context including:
 
 ```text
 1.13.10
 ```
 
-as their firmware header.
+This should not be interpreted as a universal minimum/maximum or compatibility guarantee.
 
-This does not guarantee identical behaviour across:
-
-```text
-older firmware
-newer firmware
-other GOAT models
-other regions
-```
-
-Future protocol observations should therefore include firmware context.
+Observations should record firmware whenever practical.
 
 ---
 
-# Suggested confidence scale
+# Confidence scale
 
-For future documentation updates, the following scale can be useful.
+## High
 
-## High confidence
+Strong agreement between implementation, tests and/or physical observation.
 
-Requires strong evidence such as:
+## Medium
 
-```text
-implemented
-+
-automatically tested
-+
-protocol/device correlation
-```
+Implementation and protocol interpretation are plausible and tested at the software level, but physical semantics are incomplete.
 
-or a mature upstream feature with established behaviour.
+## Low
 
-## Medium confidence
-
-Typical when:
-
-```text
-protocol mapped
-+
-implementation tested
-```
-
-but the exact physical meaning is not fully understood.
-
-## Low confidence
-
-Typical when:
-
-```text
-field exists
-```
-
-but semantic meaning is inferred mainly from its name.
-
-## Unknown
-
-No reliable protocol mapping yet.
+Field exists or parser is implemented, but the user-facing meaning remains unresolved.
 
 ---
 
-# Current strongest verified areas
+# Strongest current areas
 
-The best-understood GOAT areas currently include:
+The strongest current project evidence is for:
 
-```text
-basic mowing lifecycle
-return to dock
-mower state
-statistics framework
-O1200 mowedArea field
-rain configuration
-active-rain protection state
-```
-
-These have multiple independent forms of evidence.
-
----
-
-# Current priority research gaps
-
-The most valuable remaining verification work includes:
-
-```text
-cutting height
-mowing efficiency/mode
-mowing speed
-exact AI/app-setting mapping
-physical effects of each AI setting
-post-rain delay transition
-animal-protection runtime behaviour
-explicit ETA source
-O1200 zone command
-zone-name retrieval
-multi-zone ordering
-```
-
-Filling these gaps should generally require new controlled protocol captures rather than assumptions based on field names.
+- mower identification
+- start/pause/resume/stop lifecycle
+- return to dock
+- common state handling
+- common statistics architecture
+- O1200 `mowedArea`
+- O1200 model-gated progress calculation in Home Assistant
+- O1200 model-gated estimated-duration presentation in Home Assistant
+- O1200 rain configuration
+- active rain-protection observation
 
 ---
 
-# Relevant tests
+# Highest-priority remaining research
 
-## Upstream
+Recommended priorities:
 
-* [`tests/commands/json/test_clean.py`](https://github.com/DeebotUniverse/client.py/blob/dev/tests/commands/json/test_clean.py)
-
-## Mower settings branch
-
-* [`tests/commands/json/test_mower_settings.py`](https://github.com/monsivar/client.py/blob/feature/ecovacs-mower-settings/tests/commands/json/test_mower_settings.py)
-* [`tests/commands/json/test_rain_delay.py`](https://github.com/monsivar/client.py/blob/feature/ecovacs-mower-settings/tests/commands/json/test_rain_delay.py)
-* [`tests/commands/json/test_volume.py`](https://github.com/monsivar/client.py/blob/feature/ecovacs-mower-settings/tests/commands/json/test_volume.py)
-* [`tests/messages/json/test_mower_settings.py`](https://github.com/monsivar/client.py/blob/feature/ecovacs-mower-settings/tests/messages/json/test_mower_settings.py)
-* [`tests/messages/json/test_protect_state.py`](https://github.com/monsivar/client.py/blob/feature/ecovacs-mower-settings/tests/messages/json/test_protect_state.py)
-* [`tests/messages/json/test_rain_delay.py`](https://github.com/monsivar/client.py/blob/feature/ecovacs-mower-settings/tests/messages/json/test_rain_delay.py)
-* [`tests/hardware/test_mower_settings.py`](https://github.com/monsivar/client.py/blob/feature/ecovacs-mower-settings/tests/hardware/test_mower_settings.py)
-* [`tests/hardware/test_protect_state.py`](https://github.com/monsivar/client.py/blob/feature/ecovacs-mower-settings/tests/hardware/test_protect_state.py)
-* [`tests/hardware/test_rain_delay.py`](https://github.com/monsivar/client.py/blob/feature/ecovacs-mower-settings/tests/hardware/test_rain_delay.py)
-
-## Progress branch
-
-* [`tests/commands/json/test_stats.py`](https://github.com/monsivar/client.py/blob/feature/mower-stats-progress/tests/commands/json/test_stats.py)
-* [`tests/messages/json/test_stats.py`](https://github.com/monsivar/client.py/blob/feature/mower-stats-progress/tests/messages/json/test_stats.py)
+1. cutting height
+2. mowing mode / efficiency
+3. mowing speed
+4. exact O1200 zone-ID command
+5. cross-model progress-statistics verification
+6. behaviour of `StatsEvent.time` throughout an active job
+7. exact AI app-setting mapping
+8. post-rain delay lifecycle
+9. animal-protection runtime behaviour
+10. zone names and metadata
+11. scheduling
+12. GOAT map semantics
 
 ---
 
 # Related documentation
 
-* [Supported models](supported-models.md)
-* [Capability architecture](capabilities.md)
-* [Mowing control](mowing-control.md)
-* [Zone and area mowing](zones-and-areas.md)
-* [Mowing progress and statistics](progress-and-statistics.md)
-* [Mower settings](settings.md)
-* [Rain and protection](rain-and-protection.md)
-* [Obstacle avoidance and AI](obstacle-and-ai.md)
-* [Protocol reference](protocol-reference.md)
-* Known limitations *(next/planned)*
-* Home Assistant integration *(planned)*
+- [Overview](overview.md)
+- [Supported models](supported-models.md)
+- [Mowing control](mowing-control.md)
+- [Zones and areas](zones-and-areas.md)
+- [Progress and statistics](progress-and-statistics.md)
+- [Settings](settings.md)
+- [Rain and protection](rain-and-protection.md)
+- [Obstacle and AI](obstacle-and-ai.md)
+- [Protocol reference](protocol-reference.md)
+- [Home Assistant](home-assistant.md)
+- [Known limitations](known-limitations.md)
+- [Protocol observations](../research/protocol-observations.md)
