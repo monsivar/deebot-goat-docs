@@ -122,6 +122,7 @@ Home Assistant
 | Lawn zones and area mowing | [Zones and areas](docs/zones-and-areas.md) |
 | Job progress and mowing statistics | [Progress and statistics](docs/progress-and-statistics.md) |
 | Mower settings | [Settings](docs/settings.md) |
+| O1200 zone-specific height, cut mode, obstacle height and angle | [O1200 area parameters](docs/area-parameters.md) |
 | Rain behaviour and protection states | [Rain and protection](docs/rain-and-protection.md) |
 | Obstacle avoidance and AI settings | [Obstacle and AI](docs/obstacle-and-ai.md) |
 | Commands, messages and protocol fields | [Protocol reference](docs/protocol-reference.md) |
@@ -258,6 +259,7 @@ The strongest current implementation and test coverage includes:
 - total mowing statistics
 - maintenance/lifespan information
 - common mower settings
+- O1200 zone-specific area-parameter protocol (`mowHeightLevel`, `cutMode`, `obstacleHeight`, `angle`)
 - O1200 current-job progress
 - O1200 rain configuration
 - active rain-protection state
@@ -270,10 +272,12 @@ See [Mower settings](docs/settings.md).
 
 Important areas still requiring additional work include:
 
-- cutting height
-- mowing mode / efficiency
+- mapping O1200 `mowHeightLevel` values to physical/app cutting heights
+- decoding O1200 `cutMode` values and their app/user-facing meaning
+- determining the exact meaning/unit of O1200 `obstacleHeight`
+- clarifying the relationship between zone-specific `angle` and global `cut_direction`
 - mowing speed
-- O1200 selected-zone command and zone IDs
+- O1200 selected-zone start command and zone metadata
 - zone names and metadata
 - multi-zone behaviour
 - exact ECOVACS app mapping of AI settings
@@ -414,26 +418,25 @@ The important part is that the documentation states which stages have actually b
 
 Protocol research is especially useful when only **one variable is changed at a time**.
 
-For example, when investigating cutting height:
+For example, when mapping the physical meaning of an already identified field such as `mowHeightLevel`:
 
 ```text
-record baseline
-      │
-      ▼
+record current app height + protocol state
+              │
+              ▼
 change cutting height one step
-      │
-      ▼
-capture protocol traffic
-      │
-      ▼
-compare
-      │
-      ▼
-restore setting
-      │
-      ▼
-repeat
+              │
+              ▼
+capture onAreaParameter / getAreaParameter
+              │
+              ▼
+record mowHeightLevel
+              │
+              ▼
+repeat across available height choices
 ```
+
+This distinction matters: the O1200 cutting-height **protocol field is already mapped**; the remaining task is to map its raw levels to the exact app/physical height semantics.
 
 Useful contributions include:
 
@@ -583,6 +586,7 @@ deebot-goat-docs/
 │   ├── zones-and-areas.md
 │   ├── progress-and-statistics.md
 │   ├── settings.md
+│   ├── area-parameters.md
 │   ├── rain-and-protection.md
 │   ├── obstacle-and-ai.md
 │   ├── protocol-reference.md
