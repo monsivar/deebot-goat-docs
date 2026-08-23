@@ -44,9 +44,11 @@ Major known limitations currently include:
 - incomplete O1200 selected-zone capability
 - mower-specific settings still residing only in development branches
 - incomplete cross-model verification
-- cutting height not mapped
+- O1200 cutting-height protocol mapped, but raw `mowHeightLevel` → physical height mapping incomplete
+- O1200 `cutMode` mapped as a raw zone parameter, but its app/user-facing enum semantics remain incomplete
+- O1200 `obstacleHeight` mapped as a raw zone parameter, but its exact physical meaning/unit remains incomplete
+- relationship between O1200 zone `angle` and global `cut_direction` remains incomplete
 - mowing speed not mapped
-- GOAT-specific mowing efficiency/mode not mapped
 - no separate explicit ECOVACS ETA field identified
 - O1200 progress semantics not yet cross-model verified
 - zone names and zone metadata not fully mapped
@@ -266,60 +268,184 @@ may correspond to a lawn zone in some flows, but that mapping should be confirme
 
 ---
 
-# Cutting height is not mapped
+# O1200 cutting height is protocol-mapped, but physical semantics remain incomplete
 
-Cutting height is a core mower-specific setting, but no dedicated GOAT cutting-height capability has been identified in the reviewed implementation.
+The status of cutting height changed with the area-parameter development work.
 
-Current state:
+For the researched O1200, the protocol field is:
 
 ```text
-ECOVACS mower feature
-       │
-       ▼
-protocol command unknown
-       │
-       ▼
-no deebot_client capability
+mowHeightLevel
 ```
 
-A complete implementation needs:
+inside a zone-specific:
 
-- GET command
-- SET command
-- push message, if any
-- valid values
-- physical unit
-- minimum
-- maximum
-- step size
-- model differences
-- whether changes are allowed during mowing
+```text
+AreaParameter
+```
+
+associated with:
+
+```text
+areaID
+```
+
+Read/write/push support is implemented through:
+
+```text
+getAreaParameter
+setAreaParameter
+onAreaParameter
+```
 
 Status:
 
-**Not mapped**
+**Protocol observed / Fork implemented / Python tested**
+
+Therefore it is no longer correct to describe O1200 cutting height as:
+
+```text
+protocol unknown
+```
+
+or:
+
+```text
+not mapped
+```
+
+## Remaining limitation
+
+The raw value still needs a complete physical/user-facing mapping.
+
+Open questions include:
+
+- valid level range
+- minimum/maximum physical cutting height
+- physical unit
+- step size
+- whether the level mapping is linear
+- cross-model compatibility
+
+For example:
+
+```text
+mowHeightLevel = 10
+```
+
+is a known raw value, but should not be labelled as `10 mm` without evidence.
 
 ---
 
-# Cutting direction is not cutting height
+# Global cutting direction versus area angle
 
-Upstream exposes:
+Reviewed upstream exposes:
 
 ```text
 settings.cut_direction
 ```
 
-with:
+through:
 
 ```text
-CutDirectionEvent.angle
+GetCutDirection
+SetCutDirection
 ```
 
-This is a mowing/path-direction angle.
+The O1200 area-parameter protocol separately exposes:
 
-It must not be confused with physical grass cutting height.
+```text
+AreaParameter.angle
+```
 
-Only cutting direction is currently mapped.
+for a specific:
+
+```text
+areaID
+```
+
+The relationship between these two mechanisms is not fully established.
+
+Possible interpretations include:
+
+- global default versus per-zone override
+- model-generation differences
+- separate app functions
+
+They should not be treated as identical until correlated.
+
+---
+
+# O1200 zone cut mode is mapped at the raw protocol level
+
+The O1200 area-parameter record contains:
+
+```text
+cutMode
+```
+
+normalised as:
+
+```text
+cut_mode
+```
+
+Status:
+
+**Protocol observed / Fork implemented / Python tested**
+
+The remaining limitation is not discovery of the field.
+
+It is the mapping between integer values and:
+
+- ECOVACS app labels
+- mowing behaviour
+- possible efficiency/pattern concepts
+
+Do not automatically equate:
+
+```text
+cutMode
+```
+
+with the generic client:
+
+```text
+efficiency_mode
+```
+
+without evidence.
+
+---
+
+# O1200 zone obstacle-height parameter is mapped at the raw protocol level
+
+The O1200 area-parameter record contains:
+
+```text
+obstacleHeight
+```
+
+normalised as:
+
+```text
+obstacle_height
+```
+
+Status:
+
+**Protocol observed / Fork implemented / Python tested**
+
+Its exact:
+
+- app wording
+- physical meaning
+- valid range
+- unit
+
+remain incompletely documented.
+
+It is also distinct from boolean/AI controls such as TrueDetect, Recognization and HumanoidAI.
 
 ---
 
@@ -345,36 +471,6 @@ physical behaviour
 Status:
 
 **Not mapped**
-
----
-
-# GOAT-specific mowing efficiency/mode is not mapped
-
-The shared `CapabilitySettings` model contains a generic:
-
-```text
-efficiency_mode
-```
-
-for supported ECOVACS devices.
-
-Its existence does **not** prove that GOAT mowing-efficiency or mowing-mode options use the same protocol.
-
-Therefore:
-
-```text
-generic efficiency_mode exists
-```
-
-must not be interpreted as:
-
-```text
-GOAT mowing efficiency supported
-```
-
-Status:
-
-**Not mapped for GOAT**
 
 ---
 
@@ -1118,9 +1214,11 @@ unless the feature has been verified across enough models to justify the broader
 
 | Priority | Gap | Why it matters |
 | --- | --- | --- |
-| High | O1200 zone command/IDs | Required for native selected-zone control |
-| High | Cutting height | Core mower setting |
-| High | Mowing mode/efficiency | Core mower behaviour |
+| High | O1200 selected-zone start command/metadata | Required for native selected-zone control |
+| High | `mowHeightLevel` physical mapping | Converts known raw field into safe user-facing cutting height |
+| High | `cutMode` enum/app mapping | Converts known raw field into meaningful mower modes |
+| High | `obstacleHeight` semantics/unit | Required for safe user-facing control |
+| High | area `angle` vs global `cut_direction` | Prevents duplicate/conflicting controls |
 | High | Mowing speed | Core mower behaviour |
 | High | Cross-model progress semantics | Prevents incorrect O1200 assumptions elsewhere |
 | High | AI app-setting correlation | Required for safe user-facing labels |
@@ -1167,6 +1265,7 @@ This keeps implementation evidence separate from assumption.
 - [Zones and areas](zones-and-areas.md)
 - [Progress and statistics](progress-and-statistics.md)
 - [Settings](settings.md)
+- [O1200 area parameters](area-parameters.md)
 - [Rain and protection](rain-and-protection.md)
 - [Obstacle and AI](obstacle-and-ai.md)
 - [Protocol reference](protocol-reference.md)
