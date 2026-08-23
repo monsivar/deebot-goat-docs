@@ -4,44 +4,43 @@ This page is a compact developer reference for ECOVACS GOAT mower commands, mess
 
 Last reviewed against:
 
-* upstream `DeebotUniverse/client.py` `dev`
-* development branches used for GOAT mower research
+- upstream `DeebotUniverse/client.py` `dev`
+- mower development branches
+- [`PR #1767`](https://github.com/DeebotUniverse/client.py/pull/1767)
+- [`PR #1768`](https://github.com/DeebotUniverse/client.py/pull/1768)
 
-Date: **2026-08-23**
+Date: **2026-08-24**
 
 ## Scope
 
-This is not intended to document the complete ECOVACS protocol.
+This is not a complete ECOVACS protocol specification.
 
-It focuses on protocol elements currently relevant to GOAT mower support and research.
-
-Detailed behavioural explanations are available in the topic-specific documentation.
+It focuses on elements currently relevant to GOAT mower support and protocol research.
 
 ---
 
 # Status legend
 
-| Status         | Meaning                                           |
-| -------------- | ------------------------------------------------- |
-| **Upstream**   | Implemented in current upstream `dev`             |
-| **Fork**       | Implemented in a development branch/fork          |
-| **Observed**   | Seen in GOAT protocol traffic                     |
-| **Tested**     | Covered by Python tests                           |
-| **Unverified** | Interpretation or model support remains uncertain |
-
-A protocol item may have more than one status.
+| Status | Meaning |
+| --- | --- |
+| **Upstream** | Implemented in reviewed upstream `dev` |
+| **Fork** | Implemented in a development branch/PR |
+| **Observed** | Seen in real GOAT communication |
+| **Tested** | Covered by automated Python tests |
+| **HA** | Exposed in reviewed Home Assistant development work |
+| **Unverified** | Interpretation/model scope still incomplete |
 
 ---
 
 # Direction legend
 
-| Direction   | Meaning                                            |
-| ----------- | -------------------------------------------------- |
-| **GET**     | Client requests current state                      |
-| **SET**     | Client changes configuration                       |
-| **EXECUTE** | Client requests an action                          |
-| **PUSH**    | Device/cloud reports state without an explicit GET |
-| **REPORT**  | Device reports job/statistical information         |
+| Direction | Meaning |
+| --- | --- |
+| **GET** | Request current state |
+| **SET** | Change configuration |
+| **EXECUTE** | Request an action |
+| **PUSH** | Device/cloud reports state |
+| **REPORT** | Job/statistical report |
 
 ---
 
@@ -49,7 +48,7 @@ A protocol item may have more than one status.
 
 ## `clean_V2`
 
-Python command:
+Python:
 
 ```text
 CleanV2
@@ -65,12 +64,6 @@ Status:
 
 **Upstream**
 
-Purpose:
-
-```text
-Control the mowing lifecycle.
-```
-
 Supported actions:
 
 ```text
@@ -80,9 +73,7 @@ resume
 stop
 ```
 
-### Start
-
-Conceptual payload:
+Start example:
 
 ```json
 {
@@ -93,9 +84,7 @@ Conceptual payload:
 }
 ```
 
-### Pause
-
-Conceptual payload:
+Pause:
 
 ```json
 {
@@ -106,9 +95,7 @@ Conceptual payload:
 }
 ```
 
-### Resume
-
-Conceptual payload:
+Resume:
 
 ```json
 {
@@ -117,9 +104,7 @@ Conceptual payload:
 }
 ```
 
-### Stop
-
-Conceptual payload:
+Stop:
 
 ```json
 {
@@ -130,33 +115,11 @@ Conceptual payload:
 }
 ```
 
-Related events:
-
-```text
-StateEvent
-```
-
-Possible normalised states include:
-
-```text
-CLEANING
-PAUSED
-IDLE
-RETURNING
-ERROR
-```
-
-For GOAT devices:
-
-```text
-CLEANING = mowing
-```
-
 ---
 
 # `getCleanInfo_V2`
 
-Python command:
+Python:
 
 ```text
 GetCleanInfoV2
@@ -172,23 +135,7 @@ Status:
 
 **Upstream**
 
-Purpose:
-
-```text
-Retrieve current operation/mowing information.
-```
-
-Relevant observed/shared protocol values include:
-
-```text
-state
-trigger
-cleanState
-motionState
-content
-```
-
-Known state mappings include:
+Relevant state mappings include:
 
 ```text
 motionState = working
@@ -210,13 +157,19 @@ trigger = alert
     → State.ERROR
 ```
 
+For mower UI:
+
+```text
+State.CLEANING = MOWING
+```
+
 ---
 
 # Return to charging station
 
 ## `charge`
 
-Python command:
+Python:
 
 ```text
 Charge
@@ -240,7 +193,7 @@ Payload:
 }
 ```
 
-Normal successful result:
+Normal result:
 
 ```text
 State.RETURNING
@@ -252,23 +205,15 @@ Known response code:
 30007
 ```
 
-is handled as:
-
-```text
-already charging
-```
-
-and produces:
+is handled as already charging/docked and produces:
 
 ```text
 State.DOCKED
 ```
 
----
+## `getChargeState`
 
-# `getChargeState`
-
-Python command:
+Python:
 
 ```text
 GetChargeState
@@ -279,10 +224,6 @@ Direction:
 ```text
 GET
 ```
-
-Status:
-
-**Upstream**
 
 Important field:
 
@@ -297,19 +238,23 @@ isCharging = 1
     → State.DOCKED
 ```
 
+Status:
+
+**Upstream**
+
 ---
 
-# Area and zone mowing
+# Selected-area mowing
 
 ## `CleanAreaV2`
 
-Python command:
+Python:
 
 ```text
 CleanAreaV2
 ```
 
-Wire command:
+Wire:
 
 ```text
 clean_V2
@@ -323,53 +268,16 @@ EXECUTE
 
 Status:
 
-**Upstream**
+**Upstream generic command**
 
-The selected area is encoded in:
+Selected target is encoded in:
 
 ```text
 content.type
 content.value
 ```
 
-General structure:
-
-```json
-{
-  "act": "start",
-  "content": {
-    "type": "...",
-    "value": "..."
-  }
-}
-```
-
----
-
-# `spotArea`
-
-Client mode:
-
-```text
-CleanMode.SPOT_AREA
-```
-
-Protocol type:
-
-```text
-spotArea
-```
-
-Example:
-
-```python
-CleanAreaV2(
-    CleanMode.SPOT_AREA,
-    [5, 8],
-)
-```
-
-produces:
+Example `spotArea`:
 
 ```json
 {
@@ -381,87 +289,385 @@ produces:
 }
 ```
 
-For GOAT devices, the numeric values may represent lawn-zone identifiers.
-
-The exact mower-specific mapping should be verified per model/protocol.
-
----
-
-# `customArea`
-
-Client mode:
-
-```text
-CleanMode.CUSTOM_AREA
-```
-
-Protocol type:
+Other generic types include:
 
 ```text
 customArea
-```
-
-Example:
-
-```json
-{
-  "act": "start",
-  "content": {
-    "type": "customArea",
-    "value": "1580.0,-4087.0,3833.0,-7525.0"
-  }
-}
-```
-
-The generic client treats these as coordinate values.
-
-GOAT support for arbitrary coordinate mowing remains model/behaviour dependent.
-
----
-
-# `freeClean`
-
-Client mode:
-
-```text
-CleanMode.FREE_CLEAN
-```
-
-Protocol type:
-
-```text
 freeClean
 ```
 
-Example:
+Four reviewed upstream GOAT profiles expose the area command.
+
+The reviewed O1200 upstream profile does not.
+
+---
+
+# O1200 area-parameter protocol
+
+This is a **separate protocol family from selected-zone start**.
+
+It configures settings associated with known areas/zones.
+
+Development sources:
+
+- PR #1767
+- PR #1768
+- issue #1610 protocol observations
+
+## Data model
+
+Wire fields:
+
+```text
+areaID
+mowHeightLevel
+cutMode
+obstacleHeight
+angle
+```
+
+Python:
+
+```text
+area_id
+mow_height_level
+cut_mode
+obstacle_height
+angle
+```
+
+Normalised record:
+
+```python
+AreaParameter(
+    area_id=...,
+    mow_height_level=...,
+    cut_mode=...,
+    obstacle_height=...,
+    angle=...,
+)
+```
+
+Event:
+
+```text
+AreaParameterEvent
+```
+
+containing:
+
+```text
+list[AreaParameter]
+```
+
+Status:
+
+**Fork / Observed / Tested**
+
+Strongest model scope:
+
+```text
+GOAT O1200 LiDAR (2i0fns)
+```
+
+---
+
+# `getAreaParameter`
+
+Python:
+
+```text
+GetAreaParameter
+```
+
+Wire:
+
+```text
+getAreaParameter
+```
+
+Direction:
+
+```text
+GET
+```
+
+Response schema:
 
 ```json
 {
-  "act": "start",
-  "content": {
-    "type": "freeClean",
-    "value": "1,5,8"
-  }
+  "areaParameters": [
+    {
+      "areaID": "2",
+      "mowHeightLevel": 10,
+      "cutMode": 7,
+      "obstacleHeight": 1,
+      "angle": 180
+    },
+    {
+      "areaID": "3",
+      "mowHeightLevel": 9,
+      "cutMode": 4,
+      "obstacleHeight": 2,
+      "angle": 0
+    }
+  ]
 }
 ```
 
-The first value represents:
+Result:
 
 ```text
-cleanings
+AreaParameterEvent
 ```
 
-in the generic client.
+Status:
 
-Example:
+**Fork / Tested**
+
+---
+
+# `setAreaParameter`
+
+Python:
 
 ```text
-2,0
+SetAreaParameter
 ```
 
-represents two operations for target `0` in the upstream tests.
+Wire:
 
-GOAT-specific interpretation remains to be fully established.
+```text
+setAreaParameter
+```
+
+Direction:
+
+```text
+SET / EXECUTE-style command handling
+```
+
+Payload is a flat single-area object:
+
+```json
+{
+  "areaID": "2",
+  "mowHeightLevel": 10,
+  "cutMode": 7,
+  "obstacleHeight": 1,
+  "angle": 136
+}
+```
+
+Status:
+
+**Fork / Observed / Tested**
+
+## Full-tuple semantics
+
+The setter includes all four configurable values.
+
+It is not a set of independent low-level setters.
+
+Integrations should preserve unchanged sibling fields.
+
+---
+
+# `onAreaParameter`
+
+Direction:
+
+```text
+PUSH
+```
+
+Wire:
+
+```text
+onAreaParameter
+```
+
+Schema:
+
+```json
+{
+  "areaParameters": [
+    {
+      "areaID": "2",
+      "mowHeightLevel": 10,
+      "cutMode": 7,
+      "obstacleHeight": 1,
+      "angle": 136
+    }
+  ]
+}
+```
+
+Result:
+
+```text
+AreaParameterEvent
+```
+
+Status:
+
+**Fork / Observed / Tested**
+
+The mower publishes this after successful area-parameter changes, allowing state to be confirmed from device reporting.
+
+---
+
+# `mowHeightLevel`
+
+Protocol field:
+
+```text
+mowHeightLevel
+```
+
+Python:
+
+```text
+mow_height_level
+```
+
+Meaning:
+
+```text
+zone-specific mower cutting-height level
+```
+
+Status:
+
+**Observed / Fork / Tested**
+
+Still unresolved:
+
+```text
+raw level → physical unit/height
+full range
+step
+cross-model mapping
+```
+
+Do not interpret a raw value such as `10` as `10 mm` without evidence.
+
+---
+
+# `cutMode`
+
+Protocol:
+
+```text
+cutMode
+```
+
+Python:
+
+```text
+cut_mode
+```
+
+Meaning:
+
+```text
+zone-specific raw cut-mode value
+```
+
+Status:
+
+**Observed / Fork / Tested**
+
+Unresolved:
+
+```text
+integer → official app label/behaviour
+```
+
+Do not automatically map it to generic `efficiency_mode`.
+
+---
+
+# `obstacleHeight`
+
+Protocol:
+
+```text
+obstacleHeight
+```
+
+Python:
+
+```text
+obstacle_height
+```
+
+Status:
+
+**Observed / Fork / Tested**
+
+The name suggests obstacle-height-related zone configuration, but exact unit/range/physical semantics remain unverified.
+
+---
+
+# Area `angle`
+
+Protocol:
+
+```text
+angle
+```
+
+Python:
+
+```text
+angle
+```
+
+Status:
+
+**Observed / Fork / Tested**
+
+Associated with:
+
+```text
+areaID
+```
+
+and therefore zone-specific in this protocol family.
+
+Its exact relationship with global:
+
+```text
+GetCutDirection / SetCutDirection
+```
+
+remains open.
+
+---
+
+# O1200 area-parameter capability
+
+Development capability:
+
+```python
+area_parameter=CapabilitySet(
+    AreaParameterEvent,
+    [GetAreaParameter()],
+    SetAreaParameter,
+)
+```
+
+Conceptually:
+
+```text
+GET ──────► AreaParameterEvent ◄────── PUSH
+                 ▲
+                 │
+                SET
+```
+
+This should be treated as O1200 development support until merged/verified elsewhere.
 
 ---
 
@@ -469,7 +675,7 @@ GOAT-specific interpretation remains to be fully established.
 
 ## `getStats`
 
-Python command:
+Python:
 
 ```text
 GetStats
@@ -485,7 +691,7 @@ Status:
 
 **Upstream**
 
-Known upstream fields:
+Upstream fields:
 
 ```text
 area
@@ -493,33 +699,21 @@ time
 type
 ```
 
-Normalised event:
+Event:
 
 ```text
 StatsEvent
 ```
 
-Current upstream event:
+## `mowedArea`
 
-```python
-StatsEvent(
-    area=...,
-    time=...,
-    type=...,
-)
-```
-
----
-
-# `mowedArea`
-
-Protocol field:
+Wire:
 
 ```text
 mowedArea
 ```
 
-Python field in development branch:
+Python development field:
 
 ```text
 mowed_area
@@ -529,18 +723,7 @@ Status:
 
 **Fork / Observed / Tested**
 
-Development event:
-
-```python
-StatsEvent(
-    area=...,
-    time=...,
-    type=...,
-    mowed_area=...,
-)
-```
-
-Example test payload:
+Example:
 
 ```json
 {
@@ -550,26 +733,12 @@ Example test payload:
 }
 ```
 
-The raw units should not be inferred without separate verification.
-
----
-
-# `onStats`
+## `onStats`
 
 Direction:
 
 ```text
 PUSH
-```
-
-Status:
-
-**Upstream, extended in fork**
-
-Purpose:
-
-```text
-Report statistics without requiring an explicit getStats request.
 ```
 
 Development parsing includes:
@@ -581,21 +750,7 @@ type
 mowedArea
 ```
 
-Normalised event:
-
-```text
-StatsEvent
-```
-
----
-
-# `getTotalStats`
-
-Python command:
-
-```text
-GetTotalStats
-```
+## `getTotalStats`
 
 Direction:
 
@@ -603,11 +758,7 @@ Direction:
 GET
 ```
 
-Status:
-
-**Upstream**
-
-Known response mapping:
+Mapping:
 
 ```text
 area  → TotalStatsEvent.area
@@ -615,15 +766,11 @@ time  → TotalStatsEvent.time
 count → TotalStatsEvent.cleanings
 ```
 
-Normalised event:
+Status:
 
-```text
-TotalStatsEvent
-```
+**Upstream**
 
----
-
-# `reportStats`
+## `reportStats`
 
 Direction:
 
@@ -631,17 +778,13 @@ Direction:
 REPORT / PUSH
 ```
 
-Status:
-
-**Upstream**
-
-Normalised event:
+Event:
 
 ```text
 ReportStatsEvent
 ```
 
-Relevant fields include:
+Relevant shared fields:
 
 ```text
 area
@@ -653,20 +796,7 @@ stop
 stopReason
 ```
 
-Client mapping:
-
-```text
-cid
-    → cleaning_id
-
-content
-    → list[int]
-
-stop / stopReason
-    → CleanJobStatus
-```
-
-Known normalised statuses include:
+Known statuses include:
 
 ```text
 NO_STATUS
@@ -676,281 +806,93 @@ MANUALLY_STOPPED
 FINISHED_WITH_WARNINGS
 ```
 
-For GOAT:
+---
+
+# Progress semantics
+
+For the researched O1200 progress path:
 
 ```text
-CLEANING
+mowed_area / area × 100
 ```
 
-should normally be interpreted as:
+is derived by Home Assistant.
+
+`StatsEvent.time` is model-gated as:
 
 ```text
-MOWING
+Estimated mowing duration
 ```
 
-in a user-facing interface.
+when:
+
+```text
+mowing_job_progress=True
+```
+
+This does not create a universal ETA protocol rule.
 
 ---
 
-# TrueDetect
+# Common upstream mower settings
 
-## `getTrueDetect`
-
-Python command:
-
-```text
-GetTrueDetect
-```
-
-Direction:
-
-```text
-GET
-```
-
-Status:
-
-**Upstream**
-
-Event:
-
-```text
-TrueDetectEvent
-```
-
----
-
-# `setTrueDetect`
-
-Python command:
-
-```text
-SetTrueDetect
-```
-
-Direction:
-
-```text
-SET
-```
-
-Status:
-
-**Upstream**
-
-Type:
-
-```text
-boolean
-```
-
-The exact user-facing GOAT meaning of TrueDetect should be correlated with the ECOVACS app.
-
----
-
-# Border switch
-
-## `getBorderSwitch`
-
-Python command:
-
-```text
-GetBorderSwitch
-```
-
-Direction:
-
-```text
-GET
-```
-
-Status:
-
-**Upstream**
-
-Event:
-
-```text
-BorderSwitchEvent
-```
-
----
-
-# `setBorderSwitch`
-
-Python command:
-
-```text
-SetBorderSwitch
-```
-
-Direction:
-
-```text
-SET
-```
-
-Status:
-
-**Upstream**
-
-Type:
-
-```text
-boolean
-```
-
-The upstream source explicitly defines the wire names as:
-
-```text
-getBorderSwitch
-setBorderSwitch
-```
-
----
-
-# Other upstream mower settings
-
-The reviewed GOAT profiles also expose the following command/event pairs.
-
-| Capability               | GET class                  | SET class                  | Event                        |
-| ------------------------ | -------------------------- | -------------------------- | ---------------------------- |
-| Advanced mode            | `GetAdvancedMode`          | `SetAdvancedMode`          | `AdvancedModeEvent`          |
-| Cutting direction        | `GetCutDirection`          | `SetCutDirection`          | `CutDirectionEvent`          |
-| Child lock               | `GetChildLock`             | `SetChildLock`             | `ChildLockEvent`             |
-| Move-up warning          | `GetMoveUpWarning`         | `SetMoveUpWarning`         | `MoveUpWarningEvent`         |
+| Capability | GET | SET | Event |
+| --- | --- | --- | --- |
+| Advanced mode | `GetAdvancedMode` | `SetAdvancedMode` | `AdvancedModeEvent` |
+| Border switch | `GetBorderSwitch` | `SetBorderSwitch` | `BorderSwitchEvent` |
+| Cutting direction | `GetCutDirection` | `SetCutDirection` | `CutDirectionEvent` |
+| Child lock | `GetChildLock` | `SetChildLock` | `ChildLockEvent` |
+| Move-up warning | `GetMoveUpWarning` | `SetMoveUpWarning` | `MoveUpWarningEvent` |
 | Cross-map border warning | `GetCrossMapBorderWarning` | `SetCrossMapBorderWarning` | `CrossMapBorderWarningEvent` |
-| Safe protect             | `GetSafeProtect`           | `SetSafeProtect`           | `SafeProtectEvent`           |
-| TrueDetect               | `GetTrueDetect`            | `SetTrueDetect`            | `TrueDetectEvent`            |
-| Volume                   | `GetVolume`                | `SetVolume`                | `VolumeEvent`                |
+| Safe protect | `GetSafeProtect` | `SetSafeProtect` | `SafeProtectEvent` |
+| TrueDetect | `GetTrueDetect` | `SetTrueDetect` | `TrueDetectEvent` |
+| Volume | `GetVolume` | `SetVolume` | `VolumeEvent` |
 
-Exact wire-name spelling should be taken from the corresponding command implementation rather than derived from the Python class name when building protocol tooling.
+Status:
+
+**Upstream**
 
 ---
 
 # AI recognition
 
-## `getRecognization`
-
-Python command:
+Wire:
 
 ```text
-GetRecognization
+getRecognization
+setRecognization
+onRecognization
 ```
 
-Direction:
-
-```text
-GET
-```
-
-Status:
-
-**Fork / Tested**
-
-Protocol field:
+Field:
 
 ```text
 state
 ```
 
-Normalised event:
+Event:
 
 ```text
 AiRecognitionEvent
-```
-
----
-
-# `setRecognization`
-
-Python command:
-
-```text
-SetRecognization
-```
-
-Direction:
-
-```text
-SET
 ```
 
 Status:
 
 **Fork / Tested**
 
-Payload concept:
-
-```json
-{
-  "state": 1
-}
-```
-
-or:
-
-```json
-{
-  "state": 0
-}
-```
-
 ---
 
-# `onRecognization`
+# Humanoid AI / smart avoidance
 
-Direction:
-
-```text
-PUSH
-```
-
-Status:
-
-**Fork**
-
-Purpose:
+Wire:
 
 ```text
-AI recognition state update
+getHumanoidAI
+setHumanoidAI
+onHumanoidAI
 ```
 
-Parser behaviour is shared with:
-
-```text
-GetRecognization
-```
-
-Normalised event:
-
-```text
-AiRecognitionEvent
-```
-
----
-
-# Smart mowing / Humanoid AI
-
-## `getHumanoidAI`
-
-Python command:
-
-```text
-GetHumanoidAi
-```
-
-Direction:
-
-```text
-GET
-```
-
-Status:
-
-**Fork / Tested**
-
-Protocol field:
+Field:
 
 ```text
 enable
@@ -968,79 +910,23 @@ Implementation description:
 Smart mowing with avoidance
 ```
 
----
-
-# `setHumanoidAI`
-
-Python command:
-
-```text
-SetHumanoidAi
-```
-
-Direction:
-
-```text
-SET
-```
-
 Status:
 
 **Fork / Tested**
-
-Example:
-
-```json
-{
-  "enable": 1
-}
-```
-
----
-
-# `onHumanoidAI`
-
-Direction:
-
-```text
-PUSH
-```
-
-Status:
-
-**Fork**
-
-Normalised event:
-
-```text
-HumanoidAiEvent
-```
-
-The push handler reuses the GET parser.
 
 ---
 
 # Narrow passage adaptation
 
-## `getNarrowAdapt`
-
-Python command:
+Wire:
 
 ```text
-GetNarrowAdapt
+getNarrowAdapt
+setNarrowAdapt
+onNarrowAdapt
 ```
 
-Direction:
-
-```text
-GET
-```
-
-Status:
-
-**Fork / Tested**
-
-Protocol field:
+Field:
 
 ```text
 state
@@ -1052,77 +938,23 @@ Event:
 NarrowAdaptEvent
 ```
 
----
-
-# `setNarrowAdapt`
-
-Python command:
-
-```text
-SetNarrowAdapt
-```
-
-Direction:
-
-```text
-SET
-```
-
 Status:
 
 **Fork / Tested**
-
-Example:
-
-```json
-{
-  "state": 1
-}
-```
-
----
-
-# `onNarrowAdapt`
-
-Direction:
-
-```text
-PUSH
-```
-
-Status:
-
-**Fork**
-
-Normalised event:
-
-```text
-NarrowAdaptEvent
-```
 
 ---
 
 # Animal protection
 
-## `getAnimProtect`
-
-Python command:
+Wire:
 
 ```text
-GetAnimalProtection
+getAnimProtect
+setAnimProtect
+onAnimProtect
 ```
 
-Direction:
-
-```text
-GET
-```
-
-Status:
-
-**Fork / Tested**
-
-Known response fields:
+Fields:
 
 ```text
 enable
@@ -1130,57 +962,10 @@ start
 end
 ```
 
-Normalised event:
+Event:
 
 ```text
 AnimalProtectionEvent
-```
-
-Example response:
-
-```json
-{
-  "enable": 1,
-  "start": "23:45",
-  "end": "6:30"
-}
-```
-
-Normalised event times:
-
-```text
-23:45
-06:30
-```
-
----
-
-# `setAnimProtect`
-
-Python command:
-
-```text
-SetAnimalProtection
-```
-
-Direction:
-
-```text
-SET
-```
-
-Status:
-
-**Fork / Tested**
-
-Payload:
-
-```json
-{
-  "enable": 1,
-  "start": "23:45",
-  "end": "06:30"
-}
 ```
 
 Time strings are normalised to:
@@ -1189,31 +974,9 @@ Time strings are normalised to:
 HH:MM
 ```
 
----
-
-# `onAnimProtect`
-
-Direction:
-
-```text
-PUSH
-```
-
 Status:
 
-**Fork**
-
-Purpose:
-
-```text
-Animal protection configuration update
-```
-
-Normalised event:
-
-```text
-AnimalProtectionEvent
-```
+**Fork / Tested**
 
 ---
 
@@ -1221,23 +984,7 @@ AnimalProtectionEvent
 
 ## `setRainDelay`
 
-Python command:
-
-```text
-SetRainDelay
-```
-
-Direction:
-
-```text
-SET
-```
-
-Status:
-
-**Fork / Observed / Tested**
-
-Payload fields:
+Fields:
 
 ```text
 enable
@@ -1253,33 +1000,18 @@ Example:
 }
 ```
 
-Supported delay values:
+Allowed development values:
 
 ```text
-0
-30
-60
-90
-120
-150
-180
-210
-240
-270
-300
+0–300 minutes
+step 30 minutes
 ```
 
-Unit:
+Status:
 
-```text
-minutes
-```
+**Fork / Observed / Tested**
 
-Invalid values are rejected by the implementation.
-
----
-
-# `onRainDelay`
+## `onRainDelay`
 
 Direction:
 
@@ -1287,41 +1019,21 @@ Direction:
 PUSH
 ```
 
-Status:
+Event:
 
-**Fork / Observed / Tested**
-
-Payload:
-
-```json
-{
-  "enable": 1,
-  "delay": 180
-}
-```
-
-Normalised event:
-
-```python
-RainDelayEvent(
-    enabled=True,
-    delay=180,
-)
+```text
+RainDelayEvent
 ```
 
 Important:
 
 ```text
-onRainDelay
+configuration state ≠ current rain condition
 ```
-
-represents configuration.
-
-It does not by itself indicate that rain is currently falling.
 
 ---
 
-# Runtime protection state
+# Runtime protection
 
 ## `onProtectState`
 
@@ -1331,147 +1043,53 @@ Direction:
 PUSH
 ```
 
-Status:
-
-**Fork / Observed / Tested**
-
-Normalised event:
+Event:
 
 ```text
 ProtectStateEvent
 ```
 
-Known payload fields:
+Mapping:
 
-```text
-isAnimProtect
-isRainProtect
-isRainDelay
-isEStop
-isLocked
-isPinCode
-isPrepareDataSuccess
-```
-
-Python mapping:
-
-| Protocol               | Python                    |
-| ---------------------- | ------------------------- |
-| `isAnimProtect`        | `is_anim_protect`         |
-| `isRainProtect`        | `is_rain_protect`         |
-| `isRainDelay`          | `is_rain_delay`           |
-| `isEStop`              | `is_e_stop`               |
-| `isLocked`             | `is_locked`               |
-| `isPinCode`            | `is_pin_code`             |
+| Wire | Python |
+| --- | --- |
+| `isAnimProtect` | `is_anim_protect` |
+| `isRainProtect` | `is_rain_protect` |
+| `isRainDelay` | `is_rain_delay` |
+| `isEStop` | `is_e_stop` |
+| `isLocked` | `is_locked` |
+| `isPinCode` | `is_pin_code` |
 | `isPrepareDataSuccess` | `is_prepare_data_success` |
 
----
-
-# Observed rain protection payload
-
-A real-rain observation produced the equivalent state:
-
-```json
-{
-  "isAnimProtect": 0,
-  "isRainProtect": 1,
-  "isRainDelay": 0,
-  "isEStop": 0,
-  "isLocked": 0,
-  "isPinCode": 0,
-  "isPrepareDataSuccess": 1
-}
-```
-
-Normalised:
-
-```python
-ProtectStateEvent(
-    is_anim_protect=False,
-    is_rain_protect=True,
-    is_rain_delay=False,
-    is_e_stop=False,
-    is_locked=False,
-    is_pin_code=False,
-    is_prepare_data_success=True,
-)
-```
-
-The confirmed interpretation is:
+Real-rain observation:
 
 ```text
 isRainProtect = 1
+isRainDelay   = 0
 ```
 
-can occur while actual rain protection is active.
-
-The exact meaning of:
+The exact physical meaning of:
 
 ```text
 isRainDelay = 1
 ```
 
-remains to be established through direct observation.
+remains open.
 
 ---
 
 # Volume
 
-## `getVolume`
+## System
 
-Python command:
-
-```text
-GetVolume
-```
-
-Direction:
+Wire:
 
 ```text
-GET
+getVolume
+setVolume
 ```
 
-Status:
-
-**Upstream / extended mower parsing in fork**
-
-Known fields include:
-
-```text
-volume
-total
-type
-fallVolume
-```
-
-Normalised events can include:
-
-```text
-VolumeEvent
-FallVolumeEvent
-```
-
----
-
-# `setVolume` — system channel
-
-Python command:
-
-```text
-SetVolume
-```
-
-Direction:
-
-```text
-SET
-```
-
-Status:
-
-**Upstream, refined for O1200 in fork**
-
-Mower system-volume usage:
+Example:
 
 ```json
 {
@@ -1481,31 +1099,19 @@ Mower system-volume usage:
 }
 ```
 
----
+## Lifted/fall channel
 
-# `setVolume` — lifted-alarm channel
-
-Python command:
-
-```text
-SetFallVolume
-```
-
-Wire command:
+Wire:
 
 ```text
 setVolume
 ```
 
-Direction:
+Python:
 
 ```text
-SET
+SetFallVolume
 ```
-
-Status:
-
-**Fork**
 
 Example:
 
@@ -1517,396 +1123,314 @@ Example:
 }
 ```
 
-Normalised event:
+Event:
 
 ```text
 FallVolumeEvent
 ```
 
----
-
-# `onVolume`
-
-Direction:
+Push:
 
 ```text
-PUSH
+onVolume
 ```
-
-Status:
-
-**Fork**
-
-Purpose:
-
-```text
-Mower volume configuration update
-```
-
-The push handler reuses:
-
-```text
-GetVolume
-```
-
-parsing.
 
 ---
 
-# Lift/move-up warning
+# Move-up warning push
 
-The mower settings branch also registers:
+Wire:
 
 ```text
 onMoveupWarning
 ```
 
-Python message:
+Python:
 
 ```text
 OnMoveUpWarning
 ```
 
-Direction:
-
-```text
-PUSH
-```
-
-Normalised event:
+Event:
 
 ```text
 MoveUpWarningEvent
 ```
 
-This is separate from the dedicated lifted-alarm volume channel.
-
-Conceptually:
-
-```text
-move-up warning enabled/state
-```
-
-and:
-
-```text
-fall alarm volume
-```
-
-are two different protocol concepts.
+This is separate from fall/lifted alarm volume.
 
 ---
 
 # Compact command reference
 
-| Wire name          | Python                        | Direction | Event/result                      | Status                  |
-| ------------------ | ----------------------------- | --------- | --------------------------------- | ----------------------- |
-| `clean_V2`         | `CleanV2`                     | EXECUTE   | `StateEvent`                      | Upstream                |
-| `getCleanInfo_V2`  | `GetCleanInfoV2`              | GET       | `StateEvent`                      | Upstream                |
-| `charge`           | `Charge`                      | EXECUTE   | `StateEvent`                      | Upstream                |
-| `getChargeState`   | `GetChargeState`              | GET       | `StateEvent`                      | Upstream                |
-| `getStats`         | `GetStats`                    | GET       | `StatsEvent`                      | Upstream                |
-| `onStats`          | `OnStats`                     | PUSH      | `StatsEvent`                      | Upstream/Fork extension |
-| `getTotalStats`    | `GetTotalStats`               | GET       | `TotalStatsEvent`                 | Upstream                |
-| `reportStats`      | `ReportStats`                 | REPORT    | `ReportStatsEvent`                | Upstream                |
-| `getTrueDetect`    | `GetTrueDetect`               | GET       | `TrueDetectEvent`                 | Upstream                |
-| `setTrueDetect`    | `SetTrueDetect`               | SET       | `TrueDetectEvent`                 | Upstream                |
-| `getBorderSwitch`  | `GetBorderSwitch`             | GET       | `BorderSwitchEvent`               | Upstream                |
-| `setBorderSwitch`  | `SetBorderSwitch`             | SET       | `BorderSwitchEvent`               | Upstream                |
-| `getRecognization` | `GetRecognization`            | GET       | `AiRecognitionEvent`              | Fork                    |
-| `setRecognization` | `SetRecognization`            | SET       | `AiRecognitionEvent`              | Fork                    |
-| `onRecognization`  | `OnRecognization`             | PUSH      | `AiRecognitionEvent`              | Fork                    |
-| `getHumanoidAI`    | `GetHumanoidAi`               | GET       | `HumanoidAiEvent`                 | Fork                    |
-| `setHumanoidAI`    | `SetHumanoidAi`               | SET       | `HumanoidAiEvent`                 | Fork                    |
-| `onHumanoidAI`     | `OnHumanoidAi`                | PUSH      | `HumanoidAiEvent`                 | Fork                    |
-| `getNarrowAdapt`   | `GetNarrowAdapt`              | GET       | `NarrowAdaptEvent`                | Fork                    |
-| `setNarrowAdapt`   | `SetNarrowAdapt`              | SET       | `NarrowAdaptEvent`                | Fork                    |
-| `onNarrowAdapt`    | `OnNarrowAdapt`               | PUSH      | `NarrowAdaptEvent`                | Fork                    |
-| `getAnimProtect`   | `GetAnimalProtection`         | GET       | `AnimalProtectionEvent`           | Fork                    |
-| `setAnimProtect`   | `SetAnimalProtection`         | SET       | `AnimalProtectionEvent`           | Fork                    |
-| `onAnimProtect`    | `OnAnimalProtection`          | PUSH      | `AnimalProtectionEvent`           | Fork                    |
-| `setRainDelay`     | `SetRainDelay`                | SET       | later `RainDelayEvent`            | Fork                    |
-| `onRainDelay`      | `OnRainDelay`                 | PUSH      | `RainDelayEvent`                  | Fork                    |
-| `onProtectState`   | `OnProtectState`              | PUSH      | `ProtectStateEvent`               | Fork                    |
-| `getVolume`        | `GetVolume`                   | GET       | `VolumeEvent` / `FallVolumeEvent` | Upstream/Fork           |
-| `setVolume`        | `SetVolume` / `SetFallVolume` | SET       | volume state                      | Upstream/Fork           |
-| `onVolume`         | `OnVolume`                    | PUSH      | volume events                     | Fork                    |
-| `onMoveupWarning`  | `OnMoveUpWarning`             | PUSH      | `MoveUpWarningEvent`              | Fork                    |
+| Wire name | Python | Direction | Event/result | Status |
+| --- | --- | --- | --- | --- |
+| `clean_V2` | `CleanV2` | EXECUTE | `StateEvent` | Upstream |
+| `getCleanInfo_V2` | `GetCleanInfoV2` | GET | `StateEvent` | Upstream |
+| `charge` | `Charge` | EXECUTE | `StateEvent` | Upstream |
+| `getChargeState` | `GetChargeState` | GET | `StateEvent` | Upstream |
+| `getAreaParameter` | `GetAreaParameter` | GET | `AreaParameterEvent` | Fork |
+| `setAreaParameter` | `SetAreaParameter` | SET | later `AreaParameterEvent` | Fork |
+| `onAreaParameter` | `OnAreaParameter` | PUSH | `AreaParameterEvent` | Fork |
+| `getStats` | `GetStats` | GET | `StatsEvent` | Upstream |
+| `onStats` | `OnStats` | PUSH | `StatsEvent` | Upstream/Fork |
+| `getTotalStats` | `GetTotalStats` | GET | `TotalStatsEvent` | Upstream |
+| `reportStats` | `ReportStats` | REPORT | `ReportStatsEvent` | Upstream |
+| `getTrueDetect` | `GetTrueDetect` | GET | `TrueDetectEvent` | Upstream |
+| `setTrueDetect` | `SetTrueDetect` | SET | `TrueDetectEvent` | Upstream |
+| `getBorderSwitch` | `GetBorderSwitch` | GET | `BorderSwitchEvent` | Upstream |
+| `setBorderSwitch` | `SetBorderSwitch` | SET | `BorderSwitchEvent` | Upstream |
+| `getRecognization` | `GetRecognization` | GET | `AiRecognitionEvent` | Fork |
+| `setRecognization` | `SetRecognization` | SET | `AiRecognitionEvent` | Fork |
+| `onRecognization` | `OnRecognization` | PUSH | `AiRecognitionEvent` | Fork |
+| `getHumanoidAI` | `GetHumanoidAi` | GET | `HumanoidAiEvent` | Fork |
+| `setHumanoidAI` | `SetHumanoidAi` | SET | `HumanoidAiEvent` | Fork |
+| `onHumanoidAI` | `OnHumanoidAi` | PUSH | `HumanoidAiEvent` | Fork |
+| `getNarrowAdapt` | `GetNarrowAdapt` | GET | `NarrowAdaptEvent` | Fork |
+| `setNarrowAdapt` | `SetNarrowAdapt` | SET | `NarrowAdaptEvent` | Fork |
+| `onNarrowAdapt` | `OnNarrowAdapt` | PUSH | `NarrowAdaptEvent` | Fork |
+| `getAnimProtect` | `GetAnimalProtection` | GET | `AnimalProtectionEvent` | Fork |
+| `setAnimProtect` | `SetAnimalProtection` | SET | `AnimalProtectionEvent` | Fork |
+| `onAnimProtect` | `OnAnimalProtection` | PUSH | `AnimalProtectionEvent` | Fork |
+| `setRainDelay` | `SetRainDelay` | SET | later `RainDelayEvent` | Fork |
+| `onRainDelay` | `OnRainDelay` | PUSH | `RainDelayEvent` | Fork |
+| `onProtectState` | `OnProtectState` | PUSH | `ProtectStateEvent` | Fork |
+| `getVolume` | `GetVolume` | GET | `VolumeEvent` / `FallVolumeEvent` | Upstream/Fork |
+| `setVolume` | `SetVolume` / `SetFallVolume` | SET | volume state | Upstream/Fork |
+| `onVolume` | `OnVolume` | PUSH | volume events | Fork |
+| `onMoveupWarning` | `OnMoveUpWarning` | PUSH | `MoveUpWarningEvent` | Fork |
 
 ---
 
-# GET/SET/PUSH pattern
+# GET / SET / PUSH pattern
 
-Many mower settings follow a consistent three-message pattern:
+Many settings follow:
 
 ```text
-GET current value
-       │
-       ▼
+GET current state
+      │
+      ▼
 normalised Event
-       ▲
-       │
-SET new value
+      ▲
+      │
+SET new state
 
-and optionally:
-
-external/app/device change
-       │
-       ▼
-PUSH on...
-       │
-       ▼
+external/app change
+      │
+      ▼
+PUSH
+      │
+      ▼
 same Event
 ```
 
-Example:
+O1200 area parameters are a clear example:
 
 ```text
-getNarrowAdapt
+getAreaParameter
       │
       ▼
-NarrowAdaptEvent
+AreaParameterEvent
       ▲
       │
-setNarrowAdapt
+onAreaParameter
 
-onNarrowAdapt
+setAreaParameter
       │
-      └──────► NarrowAdaptEvent
+      └── writes one area's full tuple
 ```
-
-This design allows a consuming integration to stay synchronised when settings are changed through the official ECOVACS app.
 
 ---
 
-# Protocol names versus client names
+# Setter schema can differ from getter schema
 
-The ECOVACS protocol and Python client do not always use identical naming conventions.
+For area parameters:
+
+## SET
+
+```json
+{
+  "areaID": "2",
+  "mowHeightLevel": 10,
+  "cutMode": 7,
+  "obstacleHeight": 1,
+  "angle": 136
+}
+```
+
+## GET/PUSH
+
+```json
+{
+  "areaParameters": [
+    {
+      "areaID": "2",
+      "mowHeightLevel": 10,
+      "cutMode": 7,
+      "obstacleHeight": 1,
+      "angle": 136
+    }
+  ]
+}
+```
+
+Protocol abstractions should preserve this difference instead of assuming symmetric schemas.
+
+---
+
+# Protocol names versus Python names
 
 Examples:
 
 ```text
-Protocol             Python
-
-mowedArea         →  mowed_area
-getAnimProtect    →  GetAnimalProtection
-setAnimProtect    →  SetAnimalProtection
-getHumanoidAI     →  GetHumanoidAi
-getRecognization  →  GetRecognization
-isRainProtect     →  is_rain_protect
+areaID             → area_id
+mowHeightLevel     → mow_height_level
+cutMode            → cut_mode
+obstacleHeight     → obstacle_height
+mowedArea          → mowed_area
+getAnimProtect     → GetAnimalProtection
+getHumanoidAI      → GetHumanoidAi
+isRainProtect      → is_rain_protect
 ```
 
-The documentation should preserve both names.
+Both naming layers are useful:
 
-Protocol names are useful when analysing logs.
-
-Python names are useful when working with `deebot_client`.
+```text
+wire names → log/protocol analysis
+Python names → client implementation
+```
 
 ---
 
-# Command acknowledgement versus state update
+# Command acknowledgement versus reported state
 
-A successful command acknowledgement does not always mean that the corresponding state event is generated from the acknowledgement itself.
+A command acknowledgement does not always provide the final state.
 
-Rain configuration is an important example.
+Examples include:
 
 ```text
 setRainDelay
-      │
-      ▼
-ACK: code = 0
-      │
-      ▼
-command accepted
-```
-
-The actual resulting configuration arrives separately through:
-
-```text
+   │
+   ▼
+ACK
+   │
+   ▼
 onRainDelay
-      │
-      ▼
-RainDelayEvent
 ```
 
-When implementing new commands, always determine whether state comes from:
+and area parameters:
 
 ```text
-command response
+setAreaParameter
+   │
+   ▼
+command accepted
+   │
+   ▼
+onAreaParameter
+   │
+   ▼
+AreaParameterEvent
 ```
 
-or:
-
-```text
-later push message
-```
-
-or both.
-
----
-
-# Shared protocol abstractions
-
-Some GOAT protocol support is implemented through code originally designed for DEEBOT vacuum robots.
-
-This leads to generic terms such as:
-
-```text
-clean
-cleaning
-room
-cleanings
-CleanAction
-CleanMode
-```
-
-For GOAT development these may correspond to:
-
-```text
-mow
-mowing
-zone
-mowing passes/jobs
-```
-
-Do not rename protocol values themselves.
-
-Instead, translate them only at the user-facing integration layer.
+Consumers should prefer reported state where available.
 
 ---
 
 # Model scope
 
-Current protocol evidence comes from several sources:
+Strongest area-parameter evidence:
 
 ```text
-upstream shared GOAT hardware profiles
+GOAT O1200 LiDAR
+hardware ID 2i0fns
 ```
 
-and:
+Do not assume:
 
 ```text
-O1200-specific development/protocol investigation
+same-looking app feature
+    →
+same protocol on every GOAT
 ```
 
-Commands already wired upstream to all reviewed GOAT profiles have stronger cross-model implementation evidence.
-
-New mower settings discovered in the development branch should currently be treated as:
-
-```text
-O1200 verified implementation scope
-```
-
-unless separately observed on another model.
+Model capabilities should be enabled from evidence.
 
 ---
 
-# Adding a protocol entry
+# Current protocol gaps
 
-When documenting a newly discovered command or message, record:
-
-| Field        | Description                            |
-| ------------ | -------------------------------------- |
-| Wire name    | Exact ECOVACS `NAME`                   |
-| Python class | `deebot_client` implementation         |
-| Direction    | GET / SET / EXECUTE / PUSH / REPORT    |
-| Payload      | Relevant fields                        |
-| Event        | Normalised event                       |
-| Model        | Device where observed                  |
-| Firmware     | Firmware where captured                |
-| Branch       | Upstream or development implementation |
-| Tests        | Relevant test coverage                 |
-| Behaviour    | Physical/app correlation               |
-| Unknowns     | Anything still inferred                |
-
-Avoid publishing credentials or device-specific identifiers.
-
----
-
-# Sanitised protocol examples
-
-Protocol examples should include only fields needed to explain behaviour.
-
-Prefer:
-
-```json
-{
-  "enable": 1,
-  "delay": 180
-}
-```
-
-over a complete raw cloud/MQTT message containing:
+After PR #1767/#1768, these are no longer O1200 field-discovery gaps:
 
 ```text
-account information
-device identifiers
-serial numbers
-authentication tokens
-cloud routing identifiers
-precise map/location data
+cutting-height field
+zone cut-mode field
+zone obstacle-height field
+zone angle
 ```
 
-Raw logs should not be committed directly to the documentation repository.
-
----
-
-# Known research gaps
-
-Important GOAT protocol areas that are not yet fully mapped include:
+Remaining research includes:
 
 ```text
-cutting height
+mowHeightLevel → physical/app height mapping
+cutMode value semantics
+obstacleHeight semantics/unit
+zone angle ↔ global cut_direction
 mowing speed
-mowing efficiency/mode
-exact app mapping of AI controls
-explicit estimated-duration/ETA field
-zone-name retrieval
-O1200 selected-zone command
-multi-zone ordering
+O1200 selected-zone start capability
+areaID ↔ selected-zone start ID
+areaID ↔ display name
+multi-zone semantics
+AI app-label mapping
+explicit separate ETA field
+rain-delay lifecycle
 scheduling
-map-specific mower commands
-full rain-delay lifecycle
-object-detection reports
+GOAT map semantics
 ```
-
-These should be added to this reference as protocol evidence becomes available.
 
 ---
 
-# Relevant upstream source files
+# Sanitisation
 
-* [`deebot_client/commands/json/clean.py`](https://github.com/DeebotUniverse/client.py/blob/dev/deebot_client/commands/json/clean.py)
-* [`deebot_client/commands/json/charge.py`](https://github.com/DeebotUniverse/client.py/blob/dev/deebot_client/commands/json/charge.py)
-* [`deebot_client/commands/json/charge_state.py`](https://github.com/DeebotUniverse/client.py/blob/dev/deebot_client/commands/json/charge_state.py)
-* [`deebot_client/commands/json/stats.py`](https://github.com/DeebotUniverse/client.py/blob/dev/deebot_client/commands/json/stats.py)
-* [`deebot_client/messages/json/stats.py`](https://github.com/DeebotUniverse/client.py/blob/dev/deebot_client/messages/json/stats.py)
-* [`deebot_client/commands/json/true_detect.py`](https://github.com/DeebotUniverse/client.py/blob/dev/deebot_client/commands/json/true_detect.py)
-* [`deebot_client/commands/json/border_switch.py`](https://github.com/DeebotUniverse/client.py/blob/dev/deebot_client/commands/json/border_switch.py)
+Do not publish full raw ECOVACS traffic.
 
-# Relevant development source files
+Remove:
 
-* [`deebot_client/commands/json/recognization.py`](https://github.com/monsivar/client.py/blob/feature/ecovacs-mower-settings/deebot_client/commands/json/recognization.py)
-* [`deebot_client/commands/json/humanoid_ai.py`](https://github.com/monsivar/client.py/blob/feature/ecovacs-mower-settings/deebot_client/commands/json/humanoid_ai.py)
-* [`deebot_client/commands/json/narrow_adapt.py`](https://github.com/monsivar/client.py/blob/feature/ecovacs-mower-settings/deebot_client/commands/json/narrow_adapt.py)
-* [`deebot_client/commands/json/animal_protection.py`](https://github.com/monsivar/client.py/blob/feature/ecovacs-mower-settings/deebot_client/commands/json/animal_protection.py)
-* [`deebot_client/commands/json/rain_delay.py`](https://github.com/monsivar/client.py/blob/feature/ecovacs-mower-settings/deebot_client/commands/json/rain_delay.py)
-* [`deebot_client/messages/json/mower_settings.py`](https://github.com/monsivar/client.py/blob/feature/ecovacs-mower-settings/deebot_client/messages/json/mower_settings.py)
-* [`deebot_client/messages/json/rain_delay.py`](https://github.com/monsivar/client.py/blob/feature/ecovacs-mower-settings/deebot_client/messages/json/rain_delay.py)
-* [`deebot_client/messages/json/protect_state.py`](https://github.com/monsivar/client.py/blob/feature/ecovacs-mower-settings/deebot_client/messages/json/protect_state.py)
-* [`deebot_client/commands/json/stats.py`](https://github.com/monsivar/client.py/blob/feature/mower-stats-progress/deebot_client/commands/json/stats.py)
-* [`deebot_client/messages/json/stats.py`](https://github.com/monsivar/client.py/blob/feature/mower-stats-progress/deebot_client/messages/json/stats.py)
+```text
+account IDs
+device IDs
+serial numbers
+credentials
+tokens
+Wi-Fi details
+precise location
+private map data
+```
+
+Prefer minimal payload examples.
+
+---
+
+# Related development
+
+- [`PR #1767`](https://github.com/DeebotUniverse/client.py/pull/1767)
+- [`PR #1768`](https://github.com/DeebotUniverse/client.py/pull/1768)
+- [`Issue #1610`](https://github.com/DeebotUniverse/client.py/issues/1610)
+
+---
 
 # Related documentation
 
-* [Supported models](supported-models.md)
-* [Capability architecture](capabilities.md)
-* [Mowing control](mowing-control.md)
-* [Zone and area mowing](zones-and-areas.md)
-* [Mowing progress and statistics](progress-and-statistics.md)
-* [Mower settings](settings.md)
-* [Rain and protection](rain-and-protection.md)
-* [Obstacle avoidance and AI](obstacle-and-ai.md)
-* Testing status *(planned)*
-* Known limitations *(planned)*
-* Home Assistant integration *(planned)*
+- [Overview](overview.md)
+- [Supported models](supported-models.md)
+- [Capabilities](capabilities.md)
+- [Mowing control](mowing-control.md)
+- [Zones and areas](zones-and-areas.md)
+- [O1200 area parameters](area-parameters.md)
+- [Progress and statistics](progress-and-statistics.md)
+- [Settings](settings.md)
+- [Rain and protection](rain-and-protection.md)
+- [Obstacle and AI](obstacle-and-ai.md)
+- [Home Assistant](home-assistant.md)
+- [Testing status](testing-status.md)
+- [Known limitations](known-limitations.md)
