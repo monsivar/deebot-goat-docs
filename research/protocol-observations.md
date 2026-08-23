@@ -637,45 +637,120 @@ OPEN
 
 ---
 
-# Area ID versus zone display name
+# Area ID versus zone display name — resolved for tested O1200
 
-The official app uses human-readable names.
+## Development
 
-The area-parameter protocol uses:
-
-```text
-areaID
-```
-
-Desired mapping:
+PR:
 
 ```text
-areaID → display name
+#1774
 ```
 
-Now that concrete IDs are known, research should search:
+Client capability:
 
 ```text
-map metadata
-area metadata
-zone lists
+CapabilityClean.areas
 ```
 
-for the same ID values and known app labels.
+Command:
+
+```text
+GetAreaSet
+```
+
+Wire:
+
+```text
+getAreaSet
+```
+
+Request:
+
+```json
+{
+  "mid": "1",
+  "aid": "0",
+  "type": "ar"
+}
+```
+
+The response contains compressed:
+
+```text
+subsets
+```
+
+which are decoded into:
+
+```text
+RoomsEvent
+```
+
+## Real-device result
+
+Model:
+
+```text
+GOAT O1200 LiDAR
+hardware ID 2i0fns
+firmware 1.13.10
+```
+
+Observed/decoded mapping:
+
+```text
+4 → Østkanten
+1 → Sentrum
+2 → Vestkanten
+```
+
+## Live validation
+
+A live test without the ECOVACS app open confirmed:
+
+```text
+subscribe RoomsEvent
+      │
+      ▼
+refresh triggers GetAreaSet
+      │
+      ▼
+mower returns data
+      │
+      ▼
+RoomsEvent contains expected IDs/names
+```
 
 Evidence:
 
 ```text
-APP + PROTOCOL
+APP + DEVICE + PROTOCOL + CLIENT + TEST
 ```
 
-Relationship still:
+## Conclusion
+
+For the tested O1200, the project now has a confirmed:
 
 ```text
-OPEN
+area ID → human-readable display name
 ```
 
----
+path.
+
+This research item is promoted to:
+
+```text
+docs/area-names.md
+```
+
+## Still open
+
+```text
+selected-zone start target ↔ known area ID
+cross-model area-name support
+zone geometry/full map support
+```
 
 # Area ID versus selected-zone start target
 
@@ -1320,16 +1395,15 @@ Recommended order after PR #1767/#1768:
 3. map obstacleHeight → app meaning/unit
 4. clarify AreaParameter.angle ↔ global cut_direction
 5. confirm areaID ↔ selected-zone start target
-6. map areaID ↔ zone display name
-7. map mowing speed
+6. map mowing speed
 8. test multi-zone start/order
 9. exact AI app-setting mapping
-10. cross-model area-parameter support
-11. post-rain delay lifecycle
-12. animal-protection runtime behaviour
-13. scheduling
-14. GOAT map semantics
-15. cross-model progress semantics
+9. cross-model area-name/area-parameter support
+10. post-rain delay lifecycle
+11. animal-protection runtime behaviour
+12. scheduling
+13. GOAT map semantics
+14. cross-model progress semantics
 ```
 
 This replaces the earlier priority list where cutting-height command discovery and GOAT cut-mode command discovery were still treated as unmapped.
@@ -1372,6 +1446,7 @@ while raw-value semantics remain active research topics.
 - [`docs/mowing-control.md`](../docs/mowing-control.md)
 - [`docs/zones-and-areas.md`](../docs/zones-and-areas.md)
 - [`docs/area-parameters.md`](../docs/area-parameters.md)
+- [`docs/area-names.md`](../docs/area-names.md)
 - [`docs/progress-and-statistics.md`](../docs/progress-and-statistics.md)
 - [`docs/settings.md`](../docs/settings.md)
 - [`docs/rain-and-protection.md`](../docs/rain-and-protection.md)
