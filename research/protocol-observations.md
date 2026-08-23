@@ -2,59 +2,71 @@
 
 This file is the working research log for ECOVACS GOAT protocol investigation.
 
-Unlike the files under `docs/`, entries here may contain incomplete interpretations, open questions and hypotheses.
+Unlike files under `docs/`, entries here may contain incomplete interpretations, hypotheses and open questions.
 
-The purpose is to preserve evidence before it is promoted into the main documentation.
-
-Last updated: **2026-08-23**
+Last updated: **2026-08-24**
 
 ## Research principles
 
-Each observation should distinguish between:
+Each observation should distinguish:
 
 ```text
 What was done
 What the app showed
 What the mower physically did
 What protocol traffic was observed
-What the client currently implements
+What the client implements
 What is still inferred
 ```
 
-A protocol field name alone is not considered proof of its physical meaning.
+A protocol field name alone is not proof of complete physical semantics.
 
 ---
 
 # Evidence labels
 
-Use the following labels.
+| Label | Meaning |
+| --- | --- |
+| `APP` | Observed in official ECOVACS app |
+| `DEVICE` | Physical mower behaviour observed |
+| `PROTOCOL` | Real mower/cloud traffic observed |
+| `CLIENT` | Implemented in `deebot_client` development |
+| `TEST` | Covered by automated tests |
+| `HA` | Implemented/tested in Home Assistant development |
+| `DERIVED` | Calculated from protocol/client fields |
+| `HYPOTHESIS` | Plausible but unconfirmed interpretation |
+| `OPEN` | Requires more research |
 
-| Label        | Meaning                                     |
-| ------------ | ------------------------------------------- |
-| `APP`        | Observed in the official ECOVACS app        |
-| `DEVICE`     | Physical mower behaviour observed           |
-| `PROTOCOL`   | Real mower/cloud protocol traffic observed  |
-| `CLIENT`     | Implemented in `deebot_client`              |
-| `TEST`       | Covered by automated Python tests           |
-| `HYPOTHESIS` | Plausible interpretation, not yet confirmed |
-| `OPEN`       | Requires further investigation              |
+---
 
-An observation may have several labels.
+# Sanitisation rules
 
-Example:
+Do not publish complete raw logs.
+
+Remove:
 
 ```text
-Evidence: APP + DEVICE + PROTOCOL
+account IDs
+device IDs
+serial numbers
+authentication tokens
+cloud credentials
+Wi-Fi information
+precise property location
+private map data
+personally identifying information
 ```
+
+Prefer minimal payloads.
 
 ---
 
 # Observation template
 
-Use this template for future captures.
+Use this structure for future captures:
 
 ````markdown
-## YYYY-MM-DD — Short observation title
+## YYYY-MM-DD — Title
 
 ### Context
 
@@ -67,26 +79,24 @@ Home Assistant branch:
 
 ### User action
 
-Describe exactly what was changed or triggered.
+...
 
 ### App observation
 
-Describe what the ECOVACS app displayed.
+...
 
 ### Physical mower behaviour
 
-Describe what the mower actually did.
+...
 
 ### Protocol observation
 
 Direction:
 Wire name:
-Payload/message:
 
 ```json
-{
-}
-````
+{}
+```
 
 ### Client mapping
 
@@ -97,7 +107,7 @@ Capability:
 
 ### Interpretation
 
-What can safely be concluded?
+...
 
 ### Confidence
 
@@ -105,60 +115,35 @@ Evidence:
 
 ### Open questions
 
-* ...
-
+- ...
 ````
 
 ---
 
-# Sanitisation rules
+# Basic mowing lifecycle
 
-Do not commit complete raw logs to this public repository.
+## Observation
 
-Remove or replace:
+Actions performed through the app:
 
 ```text
-account IDs
-device IDs
-serial numbers
-authentication tokens
-cloud credentials
-Wi-Fi information
-precise property location
-private map data
-personally identifying information
-````
-
-Keep only the fields required to explain the behaviour.
-
-For example, prefer:
-
-```json
-{
-  "enable": 1,
-  "delay": 180
-}
+Start
+Pause
+Resume
+Stop
+Confirm stop
 ```
 
-over an entire MQTT message envelope.
+Physical behaviour followed the expected lifecycle.
 
----
-
-# 2026 — Basic mowing lifecycle
-
-## Context
-
-Model:
+Client/protocol representation:
 
 ```text
-Physical GOAT test mower
-```
-
-Client implementation:
-
-```text
-CleanV2
-GetCleanInfoV2
+clean_V2
+start
+pause
+resume
+stop
 ```
 
 Evidence:
@@ -167,97 +152,25 @@ Evidence:
 APP + DEVICE + PROTOCOL + CLIENT
 ```
 
-## User actions
-
-The following sequence was performed through the ECOVACS app:
-
-```text
-Start mowing
-Pause
-Resume
-Stop
-Confirm stop
-```
-
-## Physical mower behaviour
-
-Observed sequence:
-
-```text
-Start
-  │
-  ▼
-Mowing
-  │
-  ▼
-Pause
-  │
-  ▼
-Paused
-  │
-  ▼
-Resume
-  │
-  ▼
-Mowing
-  │
-  ▼
-Stop
-  │
-  ▼
-Job terminated
-```
-
-## Protocol/client mapping
-
-The shared client represents these operations through:
-
-```text
-clean_V2
-```
-
-with:
-
-```text
-start
-pause
-resume
-stop
-```
-
-## Interpretation
-
-The physical mower lifecycle matches the control abstraction already implemented by `CleanV2`.
-
-This confirms the behaviour and protocol flow.
-
-It does not by itself mean every action was independently end-to-end invoked through every consumer integration.
-
 ---
 
 # Return to charging station
 
-## User action
+App dock/return action caused the mower to return toward the station.
 
-The ECOVACS app's dock/return command was selected.
-
-## Physical behaviour
-
-The mower returned toward the charging station.
-
-## Client mapping
+Client:
 
 ```text
 Charge
 ```
 
-Wire command:
+Wire:
 
 ```text
 charge
 ```
 
-Conceptual payload:
+Payload:
 
 ```json
 {
@@ -265,19 +178,14 @@ Conceptual payload:
 }
 ```
 
-Expected client state:
+Expected normalised states:
 
 ```text
-State.RETURNING
+RETURNING
+DOCKED
 ```
 
-and once charging/docked:
-
-```text
-State.DOCKED
-```
-
-## Confidence
+Evidence:
 
 ```text
 APP + DEVICE + PROTOCOL + CLIENT
@@ -287,66 +195,148 @@ APP + DEVICE + PROTOCOL + CLIENT
 
 # Selected-zone mowing
 
-## User action
+A named zone was selected in the ECOVACS app.
 
-A single named lawn zone was selected in the ECOVACS app.
-
-One observed zone name during testing was:
+One observed name:
 
 ```text
 Sentrum
 ```
 
-The selected zone was then started as a mowing job.
-
-The job was subsequently:
+The job was:
 
 ```text
+started
 paused
 resumed
 stopped
 ```
 
-## Physical behaviour
+Physical behaviour confirmed a zone-scoped mowing job.
 
-The mower operated as a selected-zone job rather than a generic whole-lawn operation.
-
-## Client context
-
-The generic client supports:
-
-```text
-CleanAreaV2
-```
-
-with numeric area/target values.
-
-However, the reviewed upstream O1200 profile does not currently expose an area callable.
-
-## Interpretation
-
-Confirmed:
-
-```text
-named-zone mowing exists on the physical mower/app
-```
-
-Not yet confirmed:
-
-```text
-exact GOAT wire command
-exact zone-ID field
-exact mapping to SPOT_AREA
-exact O1200 CleanAreaV2 compatibility
-```
-
-## Confidence
+Evidence:
 
 ```text
 APP + DEVICE + PROTOCOL
 ```
 
-Client mapping:
+Important:
+
+```text
+selected-zone start
+```
+
+and:
+
+```text
+area-parameter configuration
+```
+
+are separate protocol questions.
+
+The area-parameter work described below establishes a concrete `areaID`, but the selected-zone start path should still be explicitly correlated to that ID before being considered solved.
+
+---
+
+# O1200 `areaID` and area parameters
+
+## Context
+
+Related development:
+
+```text
+PR #1767
+PR #1768
+Issue #1610
+```
+
+Model:
+
+```text
+GOAT O1200 LiDAR
+hardware ID 2i0fns
+```
+
+## Protocol family
+
+```text
+getAreaParameter
+setAreaParameter
+onAreaParameter
+```
+
+## Area record
+
+```text
+areaID
+mowHeightLevel
+cutMode
+obstacleHeight
+angle
+```
+
+Example setter:
+
+```json
+{
+  "areaID": "2",
+  "mowHeightLevel": 10,
+  "cutMode": 7,
+  "obstacleHeight": 1,
+  "angle": 136
+}
+```
+
+Example reported state:
+
+```json
+{
+  "areaParameters": [
+    {
+      "areaID": "2",
+      "mowHeightLevel": 10,
+      "cutMode": 7,
+      "obstacleHeight": 1,
+      "angle": 136
+    }
+  ]
+}
+```
+
+## Client mapping
+
+```text
+AreaParameter
+AreaParameterEvent
+GetAreaParameter
+SetAreaParameter
+OnAreaParameter
+settings.area_parameter
+```
+
+Evidence:
+
+```text
+PROTOCOL + CLIENT + TEST
+```
+
+## Safe conclusion
+
+The O1200 has an ECOVACS area/zone identifier called:
+
+```text
+areaID
+```
+
+for this settings protocol family.
+
+This is stronger than the earlier generic assumption that a numeric target probably identifies a zone.
+
+## Open question
+
+Confirm whether the selected-zone mowing start command uses the same `areaID` directly.
+
+Status:
 
 ```text
 OPEN
@@ -354,85 +344,431 @@ OPEN
 
 ---
 
-# Zone display name versus protocol identifier
+# `setAreaParameter` complete-tuple behaviour
 
-## Observation
-
-The ECOVACS app uses human-readable names for zones.
-
-Low-level client area commands use numeric values.
-
-## Hypothesis
-
-The architecture is likely:
+The setter sends:
 
 ```text
-human-readable zone name
+areaID
+mowHeightLevel
+cutMode
+obstacleHeight
+angle
+```
+
+together.
+
+This means higher-level integrations should preserve sibling values when changing one field.
+
+Recommended safe write:
+
+```text
+read latest AreaParameterEvent
+        │
+        ▼
+find areaID
+        │
+        ▼
+copy all values
+        │
+        ▼
+change one requested field
+        │
+        ▼
+SetAreaParameter
+        │
+        ▼
+wait for onAreaParameter
+```
+
+Evidence:
+
+```text
+PROTOCOL + CLIENT
+```
+
+---
+
+# Cutting height — updated status
+
+## Previous status
+
+Earlier research tracked cutting height as:
+
+```text
+NOT MAPPED
+```
+
+That is no longer correct for the O1200.
+
+## Known protocol field
+
+```text
+mowHeightLevel
+```
+
+Python:
+
+```text
+mow_height_level
+```
+
+Evidence:
+
+```text
+PROTOCOL + CLIENT + TEST
+```
+
+## What is now known
+
+```text
+zone-specific cutting-height level field exists
+GET state exists
+SET command exists
+PUSH state exists
+```
+
+## What is still open
+
+```text
+raw level → physical/app height
+valid range
+minimum
+maximum
+step
+unit
+cross-model mapping
+```
+
+Do not interpret:
+
+```text
+mowHeightLevel = 10
+```
+
+as:
+
+```text
+10 mm
+```
+
+without evidence.
+
+## Recommended next experiment
+
+For one fixed area:
+
+```text
+1. record app cutting height
+2. record getAreaParameter
+3. change only cutting height one step
+4. capture onAreaParameter
+5. record mowHeightLevel
+6. repeat all available app heights
+7. map raw level ↔ displayed/physical height
+```
+
+The research target is now **semantic mapping**, not command discovery.
+
+---
+
+# Zone cut mode — updated status
+
+## Known field
+
+```text
+cutMode
+```
+
+Python:
+
+```text
+cut_mode
+```
+
+Evidence:
+
+```text
+PROTOCOL + CLIENT + TEST
+```
+
+Observed/test values include integers such as:
+
+```text
+4
+7
+```
+
+## Safe conclusion
+
+A raw zone-specific cut-mode field exists.
+
+## Open questions
+
+```text
+Which official app control changes cutMode?
+What does each integer mean?
+Does it affect pattern, efficiency, passes, route, or another concept?
+Does it replace or coexist with generic efficiency_mode?
+```
+
+Do not map integer labels from guesswork.
+
+## Recommended experiment
+
+For the same area:
+
+```text
+1. record all current AreaParameter fields
+2. change exactly one app mowing-mode option
+3. capture setAreaParameter/onAreaParameter
+4. confirm only cutMode changes
+5. restore original option
+6. repeat all app modes
+```
+
+Goal:
+
+```text
+app label → cutMode value
+```
+
+---
+
+# Zone obstacle-height parameter — updated status
+
+Known field:
+
+```text
+obstacleHeight
+```
+
+Python:
+
+```text
+obstacle_height
+```
+
+Evidence:
+
+```text
+PROTOCOL + CLIENT + TEST
+```
+
+## Safe conclusion
+
+The raw field exists and is zone-specific.
+
+## Open questions
+
+```text
+official app label
+physical meaning
+unit
+valid range
+interaction with AI/obstacle settings
+```
+
+Do not assume a raw integer equals centimetres or millimetres.
+
+---
+
+# Zone mowing angle — updated status
+
+Known field:
+
+```text
+angle
+```
+
+associated with:
+
+```text
+areaID
+```
+
+Observed/test values include:
+
+```text
+0
+136
+180
+```
+
+Evidence:
+
+```text
+PROTOCOL + CLIENT + TEST
+```
+
+## Open question
+
+Reviewed upstream also exposes global:
+
+```text
+GetCutDirection
+SetCutDirection
+CutDirectionEvent.angle
+```
+
+Need to determine the relationship:
+
+```text
+AreaParameter.angle
+          ?
           │
           ▼
-internal zone ID
-          │
-          ▼
-mowing command
+global cut_direction
 ```
 
-## Status
+Possible hypotheses:
 
 ```text
-HYPOTHESIS + OPEN
+global default vs zone override
+model-generation difference
+separate app controls
 ```
 
-## Required next evidence
-
-Capture a controlled test where:
+Status:
 
 ```text
-zone A is started
-zone B is started
+OPEN
 ```
 
-and compare only the differing protocol fields.
+---
 
-This should reveal the zone identifier.
+# Area ID versus zone display name
+
+The official app uses human-readable names.
+
+The area-parameter protocol uses:
+
+```text
+areaID
+```
+
+Desired mapping:
+
+```text
+areaID → display name
+```
+
+Now that concrete IDs are known, research should search:
+
+```text
+map metadata
+area metadata
+zone lists
+```
+
+for the same ID values and known app labels.
+
+Evidence:
+
+```text
+APP + PROTOCOL
+```
+
+Relationship still:
+
+```text
+OPEN
+```
+
+---
+
+# Area ID versus selected-zone start target
+
+This is now a more precise research target.
+
+Instead of searching for "any possible zone ID", compare known:
+
+```text
+areaID
+```
+
+values with selected-zone start payloads.
+
+Recommended experiment:
+
+```text
+getAreaParameter
+    │
+    └── record areaID A and B
+
+start zone A
+start zone B
+    │
+    ▼
+compare start payload target values
+```
+
+Goal:
+
+```text
+prove selected-zone target == areaID
+```
+
+or show that another ID namespace is used.
+
+Priority:
+
+```text
+HIGH
+```
+
+---
+
+# Multi-zone start research
+
+Once the single-zone relationship is confirmed, test:
+
+```text
+A
+B
+A + B
+B + A
+```
+
+Questions:
+
+```text
+Does one command contain multiple area IDs?
+What separator is used?
+Does order matter?
+Does physical mowing order match payload order?
+```
 
 ---
 
 # Current mowing statistics — `mowedArea`
 
-## Context
-
-Research branch:
+Development branch:
 
 ```text
 feature/mower-stats-progress
 ```
 
-Strongest current model evidence:
-
-```text
-GOAT O1200 LiDAR
-```
-
-## Protocol field
+Field:
 
 ```text
 mowedArea
 ```
 
-## Client mapping
+Client:
 
 ```text
 StatsEvent.mowed_area
 ```
 
-The field is parsed from:
+Parsed from:
 
 ```text
 getStats
 onStats
 ```
 
-## Example sanitised fixture
+Example:
 
 ```json
 {
@@ -442,67 +778,49 @@ onStats
 }
 ```
 
-## Interpretation
-
-Strong evidence exists that:
-
-```text
-mowedArea
-```
-
-is useful as current-job progress information.
-
-The current progress implementation preserves the raw value.
-
-## Confidence
+Evidence:
 
 ```text
 PROTOCOL + CLIENT + TEST
+```
+
+Strongest model:
+
+```text
+GOAT O1200
 ```
 
 ---
 
 # Mowing percentage
 
-## Derived interpretation
-
-Where:
-
-```text
-area
-```
-
-and:
-
-```text
-mowedArea
-```
-
-describe total and completed area for the same operation, Home Assistant can calculate:
+Derived:
 
 ```text
 mowedArea / area × 100
 ```
 
-## Status
+Status:
 
 ```text
-DERIVED
+DERIVED + HA
 ```
 
-This percentage is not currently treated as a separate ECOVACS protocol field.
+Not a separate ECOVACS protocol field.
 
 ---
 
 # Estimated mowing duration
 
-## App observation
+The app shows an estimated duration.
 
-When a mowing job is started, the ECOVACS app presents an estimated job duration.
+For:
 
-## Development interpretation
+```text
+mowing_job_progress=True
+```
 
-For the researched mower-progress capability, Home Assistant currently interprets:
+Home Assistant currently interprets:
 
 ```text
 StatsEvent.time
@@ -514,63 +832,32 @@ as:
 Estimated mowing duration
 ```
 
-when:
+Evidence:
 
 ```text
-mowing_job_progress = True
+APP + CLIENT + TEST + HA
 ```
 
-## Important distinction
-
-This interpretation is model-gated.
-
-Do not generalise:
+Open protocol question:
 
 ```text
-StatsEvent.time = ETA
-```
-
-to every ECOVACS device.
-
-## Open question
-
-Determine whether:
-
-```text
-time
-```
-
-is itself the ECOVACS app's estimate, or whether another explicit duration/ETA field exists.
-
-## Confidence
-
-```text
-APP + CLIENT + TEST
-```
-
-Protocol semantics:
-
-```text
-OPEN
+Is this exactly the app's estimate?
+Is there another explicit ETA field?
+How does time change during a job?
 ```
 
 ---
 
 # Rain configuration
 
-## Strongest current model evidence
-
-```text
-GOAT O1200 LiDAR
-```
-
-## Wire command
+Wire:
 
 ```text
 setRainDelay
+onRainDelay
 ```
 
-## Known fields
+Fields:
 
 ```text
 enable
@@ -586,31 +873,14 @@ Example:
 }
 ```
 
-## Known delay values
-
-Accepted by the current implementation:
+Known implementation values:
 
 ```text
-0
-30
-60
-90
-120
-150
-180
-210
-240
-270
-300
+0–300 minutes
+step 30 minutes
 ```
 
-Unit:
-
-```text
-minutes
-```
-
-## Client mapping
+Client:
 
 ```text
 SetRainDelay
@@ -618,7 +888,7 @@ RainDelayEvent
 OnRainDelay
 ```
 
-## Confidence
+Evidence:
 
 ```text
 PROTOCOL + CLIENT + TEST + DEVICE
@@ -626,53 +896,15 @@ PROTOCOL + CLIENT + TEST + DEVICE
 
 ---
 
-# Rain configuration update
-
-## Wire message
-
-```text
-onRainDelay
-```
-
-Example:
-
-```json
-{
-  "enable": 1,
-  "delay": 180
-}
-```
-
-## Client event
-
-```python
-RainDelayEvent(
-    enabled=True,
-    delay=180,
-)
-```
-
-## Interpretation
-
-This message represents rain configuration.
-
-It should not be interpreted as evidence that rain is currently falling.
-
----
-
 # Active rain protection
 
-## Test condition
-
-Actual rain was correlated with a protection-state message.
-
-## Wire message
+Wire:
 
 ```text
 onProtectState
 ```
 
-## Relevant observed values
+Observed during actual rain:
 
 ```json
 {
@@ -686,31 +918,15 @@ onProtectState
 }
 ```
 
-## Client event
-
-```python
-ProtectStateEvent(
-    is_anim_protect=False,
-    is_rain_protect=True,
-    is_rain_delay=False,
-    is_e_stop=False,
-    is_locked=False,
-    is_pin_code=False,
-    is_prepare_data_success=True,
-)
-```
-
-## Safe conclusion
-
-During the observed rain condition:
+Safe conclusion:
 
 ```text
 isRainProtect = 1
 ```
 
-was associated with active rain protection.
+can represent active rain protection.
 
-## Confidence
+Evidence:
 
 ```text
 DEVICE + PROTOCOL + CLIENT + TEST
@@ -720,89 +936,52 @@ DEVICE + PROTOCOL + CLIENT + TEST
 
 # `isRainDelay`
 
-## Observation
-
-During actual rain:
+Actual-rain observation:
 
 ```text
 isRainDelay = 0
 ```
 
-## Hypothesis
-
-A possible interpretation is:
+Hypothesis:
 
 ```text
 isRainDelay = 1
 ```
 
-during the post-rain waiting period.
+may represent the post-rain waiting period.
 
-## Status
+Status:
 
 ```text
 HYPOTHESIS + OPEN
 ```
 
-This must not be promoted to confirmed documentation until directly observed.
-
----
-
-# Required rain lifecycle experiment
-
-Capture the complete sequence:
+Required experiment:
 
 ```text
 dry
- │
- ▼
 rain starts
- │
- ▼
-active rain protection
- │
- ▼
+rain protection
 rain stops
- │
- ▼
-post-rain wait
- │
- ▼
-delay expires
- │
- ▼
+delay period
 ready/resume
 ```
 
-At every transition record:
-
-```text
-timestamp
-mower state
-onRainDelay
-onProtectState
-ECOVACS app status
-physical mower behaviour
-```
-
-Primary question:
-
-```text
-When and why does isRainDelay become 1?
-```
+Capture state at every transition.
 
 ---
 
-# Animal protection configuration
+# Animal protection
 
-## Wire commands
+Wire:
 
 ```text
 getAnimProtect
 setAnimProtect
+onAnimProtect
 ```
 
-## Fields
+Fields:
 
 ```text
 enable
@@ -810,373 +989,210 @@ start
 end
 ```
 
-Example:
-
-```json
-{
-  "enable": 1,
-  "start": "23:45",
-  "end": "06:30"
-}
-```
-
-## Client mapping
+Client:
 
 ```text
-GetAnimalProtection
-SetAnimalProtection
 AnimalProtectionEvent
-OnAnimalProtection
 ```
 
-## Interpretation
-
-Animal protection is a scheduled configuration rather than a simple boolean toggle.
-
-## Confidence
+Evidence:
 
 ```text
 PROTOCOL + CLIENT + TEST
 ```
 
-Physical behaviour during the active schedule:
-
-```text
-OPEN
-```
-
----
-
-# Animal protection runtime state
-
-## Protection field
+Runtime field:
 
 ```text
 isAnimProtect
 ```
 
-Client mapping:
+in:
 
 ```text
-ProtectStateEvent.is_anim_protect
+ProtectStateEvent
 ```
 
-## Open question
-
-Determine exactly when this becomes true relative to:
-
-```text
-configured start time
-configured end time
-active mowing job
-```
-
-and what physical behaviour changes when active.
+Physical schedule behaviour remains incomplete.
 
 ---
 
 # AI recognition
 
-## Wire commands
+Wire:
 
 ```text
 getRecognization
 setRecognization
-```
-
-Push:
-
-```text
 onRecognization
 ```
 
-## Field
+Field:
 
 ```text
 state
 ```
 
-Example enabled value:
-
-```json
-{
-  "state": 1
-}
-```
-
-## Client mapping
+Client:
 
 ```text
 AiRecognitionEvent
 ```
 
-## Confidence
+Evidence:
 
 ```text
 PROTOCOL + CLIENT + TEST
 ```
 
-Exact ECOVACS app label:
-
-```text
-OPEN
-```
-
-Physical behavioural effect:
-
-```text
-OPEN
-```
+Official app label and complete physical effect remain open.
 
 ---
 
-# Humanoid AI
+# Humanoid AI / smart avoidance
 
-## Wire commands
+Wire:
 
 ```text
 getHumanoidAI
 setHumanoidAI
-```
-
-Push:
-
-```text
 onHumanoidAI
 ```
 
-## Field
+Field:
 
 ```text
 enable
 ```
 
-Example:
-
-```json
-{
-  "enable": 1
-}
-```
-
-## Client mapping
+Client:
 
 ```text
 HumanoidAiEvent
 ```
 
-Current implementation description:
+Implementation description:
 
 ```text
 Smart mowing with avoidance
 ```
 
-## Confidence
+Evidence:
 
 ```text
 PROTOCOL + CLIENT + TEST
 ```
 
-## Open questions
-
-Determine:
+Open:
 
 ```text
 official app label
-whether this specifically relates to people
-whether it changes general obstacle avoidance
-interaction with AI recognition
-interaction with TrueDetect
+human-specific vs general avoidance
+interaction with Recognization/TrueDetect
 ```
 
 ---
 
 # Narrow passage adaptation
 
-## Wire commands
+Wire:
 
 ```text
 getNarrowAdapt
 setNarrowAdapt
-```
-
-Push:
-
-```text
 onNarrowAdapt
 ```
 
-## Field
+Field:
 
 ```text
 state
 ```
 
-## Client mapping
+Client:
 
 ```text
 NarrowAdaptEvent
 ```
 
-## Current interpretation
-
-```text
-Narrow passage adaptation
-```
-
-## Confidence
+Evidence:
 
 ```text
 PROTOCOL + CLIENT + TEST
 ```
 
-Physical navigation effect:
-
-```text
-OPEN
-```
-
----
-
-# Recommended narrow-passage experiment
-
-Use the same mapped narrow passage and run controlled tests with:
-
-```text
-NarrowAdapt OFF
-NarrowAdapt ON
-```
-
-Keep other settings unchanged.
-
-Record:
-
-```text
-whether mower enters passage
-whether it mows inside passage
-route chosen
-number of retries
-minimum clearance
-app warnings/errors
-relevant protocol messages
-```
+Physical navigation effect still needs A/B testing.
 
 ---
 
 # TrueDetect
 
-## Wire commands
+Wire:
 
 ```text
 getTrueDetect
 setTrueDetect
 ```
 
-## Client status
+Status:
 
 ```text
 Upstream implemented
 ```
 
-## Open issue
-
-The exact relationship between:
+Relationship with:
 
 ```text
-TrueDetect
 Recognization
 HumanoidAI
+obstacleHeight
 ```
 
-on GOAT mowers remains unclear.
-
-A systematic app correlation test is required.
+remains incomplete.
 
 ---
 
-# AI/app-setting correlation experiment
+# AI/app correlation method
 
-For each ECOVACS app option:
+For each official app control:
 
 ```text
-1. record current values
-2. start protocol capture
-3. change exactly one app setting
+1. record baseline
+2. start capture
+3. change exactly one control
 4. stop capture
-5. identify changed command
-6. restore original setting
+5. identify changed command/field
+6. restore
 7. repeat
 ```
 
-The target result is a table such as:
-
-| App label | Wire command       | Field    | Confirmed |
-| --------- | ------------------ | -------- | :-------: |
-| unknown   | `setRecognization` | `state`  |  pending  |
-| unknown   | `setHumanoidAI`    | `enable` |  pending  |
-| unknown   | `setNarrowAdapt`   | `state`  |  pending  |
-| unknown   | `setTrueDetect`    | boolean  |  pending  |
-
-Do not fill the app-label column from guesswork.
+Do not infer app labels from protocol class names alone.
 
 ---
 
 # Volume channels
 
-## System volume
-
-Protocol family:
+System:
 
 ```text
-getVolume
-setVolume
+type = sys
 ```
 
-Known channel:
+Lifted/fall warning:
 
 ```text
-sys
+type = fall
 ```
 
-Example:
-
-```json
-{
-  "type": "sys",
-  "total": 10,
-  "volume": 5
-}
-```
-
-## Lifted-alarm volume
-
-Known channel:
+Both use:
 
 ```text
-fall
+getVolume / setVolume
 ```
 
-Example:
+but represent separate logical settings.
 
-```json
-{
-  "type": "fall",
-  "total": 10,
-  "volume": 5
-}
-```
-
-Client event:
-
-```text
-FallVolumeEvent
-```
-
-## Interpretation
-
-System audio volume and lifted-mower alarm volume are separate logical settings using the same command family.
-
-## Confidence
+Evidence:
 
 ```text
 PROTOCOL + CLIENT + TEST
@@ -1184,299 +1200,67 @@ PROTOCOL + CLIENT + TEST
 
 ---
 
-# Move-up/lift warning
-
-Push name:
-
-```text
-onMoveupWarning
-```
-
-Client event:
-
-```text
-MoveUpWarningEvent
-```
-
-This should be kept conceptually separate from:
-
-```text
-fall volume
-```
-
-One controls warning behaviour/state.
-
-The other controls the associated alarm-volume channel.
-
----
-
 # Protection-state unresolved fields
 
-The following fields are mapped but not yet fully understood.
-
-## `isEStop`
-
-Likely emergency-stop-related.
-
-Status:
+Mapped:
 
 ```text
-OPEN
+isEStop
+isLocked
+isPinCode
+isPrepareDataSuccess
 ```
 
-Required test:
+Open questions remain for exact user-facing semantics.
 
-Trigger and reset emergency stop while capturing `onProtectState`.
-
----
-
-## `isLocked`
-
-Lock-related.
-
-Do not assume it is identical to:
+Do not assume:
 
 ```text
-ChildLockEvent
+isLocked == child lock
 ```
 
-Status:
-
-```text
-OPEN
-```
-
-Required test:
-
-Toggle child lock while observing `isLocked`.
-
----
-
-## `isPinCode`
-
-PIN/security-related.
-
-Possible meanings are currently unknown.
-
-Status:
-
-```text
-OPEN
-```
-
-Do not publish a user-facing interpretation until correlated.
-
----
-
-## `isPrepareDataSuccess`
-
-Observed field with unclear user-facing purpose.
-
-Status:
-
-```text
-OPEN
-```
-
-Likely best retained for diagnostics/research unless future evidence shows a meaningful feature.
-
----
-
-# Cutting height research target
-
-## Current status
-
-```text
-NOT MAPPED
-```
-
-## Goal
-
-Identify:
-
-```text
-GET command
-SET command
-push message
-raw value
-unit
-minimum
-maximum
-step
-model support
-```
-
-## Recommended experiment
-
-1. Record current cutting height in the ECOVACS app.
-2. Start a clean protocol capture.
-3. Change only cutting height by one step.
-4. Stop capture.
-5. Compare new messages/commands with baseline.
-6. Change height again.
-7. Compare which field changes consistently.
-8. Restore original value.
-
-Avoid changing other mower settings during the capture.
+without correlation.
 
 ---
 
 # Mowing speed research target
 
-## Current status
+Status:
 
 ```text
 NOT MAPPED
 ```
 
-## Goal
-
-Determine whether mower speed is:
+Goal:
 
 ```text
-discrete enum
-numeric value
-part of another mowing-mode object
-```
-
-## Recommended capture
-
-Change only the speed option in the app and compare outgoing protocol values.
-
-If several levels exist, capture every level.
-
----
-
-# Mowing efficiency/mode research target
-
-## Current status
-
-```text
-NOT MAPPED FOR GOAT
-```
-
-Do not assume the generic DEEBOT:
-
-```text
-efficiency_mode
-```
-
-capability is applicable.
-
-## Required evidence
-
-Map every app option individually to:
-
-```text
+identify app option
 wire command
-field
-raw value
-push message
+raw field/value
+valid range/options
+physical effect
 ```
 
----
-
-# Zone-ID research target
-
-## Priority
-
-```text
-HIGH
-```
-
-## Goal
-
-Identify the exact command and zone identifier used by the O1200.
-
-## Recommended experiment
-
-Create or use two already-defined zones with clearly different names.
-
-Run separate captures:
-
-```text
-start zone A
-stop
-
-start zone B
-stop
-```
-
-Compare the outgoing start commands.
-
-Any field whose value consistently changes with the selected zone is a candidate identifier.
-
-Then repeat zone A to verify the same value returns.
-
----
-
-# Multi-zone research target
-
-Once the single-zone identifier is known, test:
-
-```text
-zone A
-zone B
-zone A + B
-zone B + A
-```
-
-Questions:
-
-```text
-Does one command contain multiple IDs?
-Does order affect the payload?
-Does order affect physical mowing?
-Does the mower choose its own route?
-```
-
----
-
-# Zone-name research target
-
-After identifying zone IDs, determine where human-readable names originate.
-
-Search protocol traffic for:
-
-```text
-zone ID
-known app zone name
-map metadata
-area metadata
-```
-
-The desired result is a mapping:
-
-```text
-zone_id → display_name
-```
-
-without depending on manually configured Home Assistant names.
+This is now the clearest remaining unmapped core mowing parameter after area-parameter discovery.
 
 ---
 
 # Scheduling research target
 
-## Current status
+Capture:
 
 ```text
-NOT MAPPED
+create
+edit
+enable
+disable
+delete
+weekday change
+time change
+zone change
 ```
 
-Capture operations for:
-
-```text
-create schedule
-edit schedule
-disable schedule
-enable schedule
-delete schedule
-change weekday
-change start time
-change selected zone
-```
-
-Important fields to identify:
+Identify:
 
 ```text
 schedule ID
@@ -1484,52 +1268,83 @@ weekdays
 time
 enabled
 zone selection
-mowing mode
+mowing settings
 timezone
+```
+
+Status:
+
+```text
+OPEN
 ```
 
 ---
 
 # Map research target
 
-GOAT map support remains a separate research area.
-
-Potential objects include:
+Potential GOAT map objects:
 
 ```text
 lawn boundary
 zones
 no-go areas
-station position
+station
 mower position
-navigation route
+route
 mowing trace
 ```
 
-Before implementing map support, establish:
+Need:
 
 ```text
 coordinate system
 origin
 scale
 orientation
-object IDs
-map revision behaviour
+area IDs
+map revisions
+geometry semantics
 ```
 
-Do not assume DEEBOT vacuum-map semantics apply unchanged.
+Now that `areaID` is known in area-parameter traffic, it should be used as a search key when analysing map/zone metadata.
+
+---
+
+# Updated research priorities
+
+Recommended order after PR #1767/#1768:
+
+```text
+1. map mowHeightLevel → exact app/physical cutting height
+2. map cutMode values → app labels/behaviour
+3. map obstacleHeight → app meaning/unit
+4. clarify AreaParameter.angle ↔ global cut_direction
+5. confirm areaID ↔ selected-zone start target
+6. map areaID ↔ zone display name
+7. map mowing speed
+8. test multi-zone start/order
+9. exact AI app-setting mapping
+10. cross-model area-parameter support
+11. post-rain delay lifecycle
+12. animal-protection runtime behaviour
+13. scheduling
+14. GOAT map semantics
+15. cross-model progress semantics
+```
+
+This replaces the earlier priority list where cutting-height command discovery and GOAT cut-mode command discovery were still treated as unmapped.
 
 ---
 
 # Promotion from research to documentation
 
-An observation should normally move from this file into `docs/` when:
+Move a finding into `docs/` when:
 
 ```text
-wire name is known
-relevant fields are known
-model scope is known
-interpretation is sufficiently supported
+wire name known
+fields known
+model scope known
+interpretation sufficiently supported
 ```
 
 Ideal evidence also includes:
@@ -1537,45 +1352,31 @@ Ideal evidence also includes:
 ```text
 client implementation
 automated tests
-physical-device verification
+physical verification
 ```
 
-After promotion, this research entry can remain as historical evidence but should link to the corresponding documentation page.
-
----
-
-# Current research priorities
-
-Recommended next investigation order:
+Area-parameter protocol structure has now been promoted into:
 
 ```text
-1. cutting height
-2. mowing mode / efficiency
-3. mowing speed
-4. O1200 zone-ID command
-5. exact AI app-setting mapping
-6. post-rain delay lifecycle
-7. animal-protection runtime behaviour
-8. zone names/metadata
-9. scheduling
-10. map semantics
+docs/area-parameters.md
 ```
 
-The order may change as new protocol evidence appears.
+while raw-value semantics remain active research topics.
 
 ---
 
 # Related documentation
 
-* [`docs/overview.md`](../docs/overview.md)
-* [`docs/supported-models.md`](../docs/supported-models.md)
-* [`docs/mowing-control.md`](../docs/mowing-control.md)
-* [`docs/zones-and-areas.md`](../docs/zones-and-areas.md)
-* [`docs/progress-and-statistics.md`](../docs/progress-and-statistics.md)
-* [`docs/settings.md`](../docs/settings.md)
-* [`docs/rain-and-protection.md`](../docs/rain-and-protection.md)
-* [`docs/obstacle-and-ai.md`](../docs/obstacle-and-ai.md)
-* [`docs/protocol-reference.md`](../docs/protocol-reference.md)
-* [`docs/testing-status.md`](../docs/testing-status.md)
-* [`docs/known-limitations.md`](../docs/known-limitations.md)
-* [`docs/home-assistant.md`](../docs/home-assistant.md)
+- [`docs/overview.md`](../docs/overview.md)
+- [`docs/supported-models.md`](../docs/supported-models.md)
+- [`docs/mowing-control.md`](../docs/mowing-control.md)
+- [`docs/zones-and-areas.md`](../docs/zones-and-areas.md)
+- [`docs/area-parameters.md`](../docs/area-parameters.md)
+- [`docs/progress-and-statistics.md`](../docs/progress-and-statistics.md)
+- [`docs/settings.md`](../docs/settings.md)
+- [`docs/rain-and-protection.md`](../docs/rain-and-protection.md)
+- [`docs/obstacle-and-ai.md`](../docs/obstacle-and-ai.md)
+- [`docs/protocol-reference.md`](../docs/protocol-reference.md)
+- [`docs/testing-status.md`](../docs/testing-status.md)
+- [`docs/known-limitations.md`](../docs/known-limitations.md)
+- [`docs/home-assistant.md`](../docs/home-assistant.md)
