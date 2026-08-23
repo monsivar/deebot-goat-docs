@@ -1,43 +1,40 @@
 # Zone and area mowing
 
-This page documents how selected-area mowing is represented in [`DeebotUniverse/client.py`](https://github.com/DeebotUniverse/client.py), and how the generic client concepts relate to ECOVACS GOAT mower zones.
+This page documents selected-area mowing and zone-related protocol concepts for ECOVACS GOAT mowers.
 
-Last reviewed against the upstream `dev` branch: **2026-08-23**.
+Last reviewed: **2026-08-24**
 
 ## Overview
 
-ECOVACS GOAT mowers can divide a lawn into separately selectable mowing areas in the ECOVACS app.
+GOAT lawn zones appear in several different protocol contexts.
 
-The app may present these areas as lawn zones or named areas.
+It is important not to treat all "area" functionality as one command.
 
-`deebot_client`, however, uses generic abstractions originally shared with robotic vacuum cleaners:
+Current research distinguishes at least:
 
 ```text
-CleanArea
-CleanAreaV2
-CleanMode
-SPOT_AREA
-CUSTOM_AREA
-FREE_CLEAN
+1. starting a mowing job for selected zone(s)
+2. identifying a zone
+3. reading/writing settings for a zone
+4. retrieving zone names/metadata
+5. map/geometry data
 ```
 
-The terminology therefore needs to be interpreted carefully.
+The O1200 area-parameter work improves our understanding of items 2 and 3.
 
-For GOAT devices, an "area" in `deebot_client` may represent a mower zone or another selected mowing target.
-
-It should not automatically be assumed that vacuum concepts such as "room" have the same semantic meaning on a mower.
+It does **not** automatically solve items 1, 4 or 5.
 
 ---
 
-# Capability model
+# Generic selected-area mowing capability
 
-Selected-area mowing is exposed through:
+The shared client exposes selected-area start through:
 
 ```text
 Capabilities.clean.action.area
 ```
 
-The generic capability definition allows the area command to be optional:
+using an optional area command:
 
 ```python
 CapabilityCleanAction(
@@ -51,29 +48,17 @@ Conceptually:
 ```text
 CapabilityCleanAction
         │
-        ├── command → normal mowing lifecycle
-        │
+        ├── command → START / PAUSE / RESUME / STOP
         └── area    → selected-area start
 ```
 
-The normal action command handles:
-
-```text
-START
-PAUSE
-RESUME
-STOP
-```
-
-while the area command determines the target when starting a selected-area job.
-
-Once started, the normal pause/resume/stop lifecycle can still apply.
+Once a selected-area job has started, normal lifecycle control still applies.
 
 ---
 
 # `CleanAreaV2`
 
-The V2 implementation used by supported GOAT profiles is:
+The generic V2 area implementation is:
 
 ```text
 CleanAreaV2
@@ -85,45 +70,13 @@ It extends:
 CleanV2
 ```
 
-and accepts three important parameters:
-
-```text
-mode
-area
-cleanings
-```
-
-The Python constructor conceptually looks like:
-
-```python
-CleanAreaV2(
-    mode,
-    area,
-    cleanings=1,
-)
-```
-
-where:
-
-* `mode` identifies the selection/mowing type
-* `area` contains target identifiers or coordinates
-* `cleanings` represents an operation count where relevant
-
-The command is always created as a start operation.
-
----
-
-# Protocol command
-
-Because `CleanAreaV2` extends `CleanV2`, the ECOVACS command name remains:
+and uses the same wire command family:
 
 ```text
 clean_V2
 ```
 
-The area selection is placed inside the command's `content`.
-
-The general structure is:
+General selected-area structure:
 
 ```json
 {
@@ -135,16 +88,9 @@ The general structure is:
 }
 ```
 
-The exact interpretation of `value` depends on the selected `CleanMode`.
-
----
-
-# `CleanMode`
-
-The shared client currently defines:
+The client supports:
 
 ```text
-AUTO
 SPOT_AREA
 CUSTOM_AREA
 FREE_CLEAN
@@ -152,22 +98,19 @@ FREE_CLEAN
 
 with protocol values:
 
-| Client mode   | Protocol value |
-| ------------- | -------------- |
-| `AUTO`        | `auto`         |
-| `SPOT_AREA`   | `spotArea`     |
-| `CUSTOM_AREA` | `customArea`   |
-| `FREE_CLEAN`  | `freeClean`    |
+| Client mode | Protocol value |
+| --- | --- |
+| `SPOT_AREA` | `spotArea` |
+| `CUSTOM_AREA` | `customArea` |
+| `FREE_CLEAN` | `freeClean` |
 
-These names originate from the generic ECOVACS protocol/client model.
+These names are generic ECOVACS/DEEBOT terminology.
 
-They should not automatically be treated as the names used by the GOAT application.
+They should not automatically be treated as official GOAT app terminology.
 
 ---
 
-# `SPOT_AREA`
-
-For `SPOT_AREA`, `CleanAreaV2` joins the supplied area identifiers with commas.
+# `spotArea`
 
 Example:
 
@@ -178,7 +121,7 @@ CleanAreaV2(
 )
 ```
 
-produces command-specific content equivalent to:
+produces:
 
 ```json
 {
@@ -190,79 +133,17 @@ produces command-specific content equivalent to:
 }
 ```
 
-The upstream test suite labels this case:
+The generic client can therefore encode multiple target identifiers.
 
-```text
-Rooms V2
-```
+On a GOAT, numeric values may correspond to lawn-zone IDs.
 
-because the same abstraction is used by vacuum robots.
-
-For mower documentation, these numeric values should more neutrally be described as:
-
-```text
-selected area identifiers
-```
-
-until their exact GOAT-specific semantics are verified.
-
-On a GOAT mower, they may correspond to lawn-zone identifiers rather than indoor room identifiers.
+The exact per-model mapping still requires evidence.
 
 ---
 
-# Multiple selected areas
+# `customArea`
 
-The generic implementation supports multiple values in the area list.
-
-For example:
-
-```python
-[5, 8]
-```
-
-becomes:
-
-```text
-5,8
-```
-
-This demonstrates that the command format can represent more than one target identifier.
-
-Conceptually:
-
-```text
-Selected targets
-    │
-    ├── 5
-    └── 8
-         │
-         ▼
-      "5,8"
-```
-
-Whether all GOAT models and firmware versions support multi-zone mowing through the same representation should be verified separately.
-
----
-
-# `CUSTOM_AREA`
-
-`CUSTOM_AREA` represents coordinate-based selection in the generic client.
-
-Example:
-
-```python
-CleanAreaV2(
-    CleanMode.CUSTOM_AREA,
-    [
-        1580.0,
-        -4087.0,
-        3833.0,
-        -7525.0,
-    ],
-)
-```
-
-produces:
+Generic example:
 
 ```json
 {
@@ -274,54 +155,15 @@ produces:
 }
 ```
 
-This format originates from the shared ECOVACS clean-area implementation.
+The common client treats these as coordinate-style values.
 
-The four values are treated by the existing code as custom-area coordinates.
-
-## GOAT interpretation
-
-The presence of `CUSTOM_AREA` in the shared command implementation does **not** by itself prove that arbitrary coordinate-based mowing is supported by all GOAT models.
-
-Three levels must be distinguished:
-
-```text
-Generic command implementation exists
-            │
-            ▼
-GOAT hardware profile exposes CleanAreaV2
-            │
-            ▼
-Specific mode works on physical GOAT
-```
-
-Only the first two can be inferred directly from upstream source code.
-
-Physical mower testing is required to confirm mower-specific coordinate behaviour.
+This does not prove that arbitrary coordinate mowing works on every GOAT.
 
 ---
 
-# `FREE_CLEAN`
+# `freeClean`
 
-`FREE_CLEAN` has a slightly different payload format.
-
-For this mode, `CleanAreaV2` prefixes the selected values with the requested number of cleanings/mowing passes.
-
-Example:
-
-```python
-CleanAreaV2(
-    CleanMode.FREE_CLEAN,
-    [5, 8],
-)
-```
-
-with the default:
-
-```text
-cleanings = 1
-```
-
-produces:
+Generic example:
 
 ```json
 {
@@ -333,409 +175,587 @@ produces:
 }
 ```
 
-The first value is therefore:
+The first value represents the generic:
 
 ```text
-1
+cleanings
 ```
 
-followed by the selected identifiers:
+count.
+
+A test such as:
 
 ```text
-5,8
+2,0
 ```
 
-Conceptually:
+means two operations for target `0` in the shared client test context.
 
-```text
-cleanings + selected targets
-       │
-       ▼
-   1 + 5 + 8
-       │
-       ▼
-    "1,5,8"
-```
+The exact mower-specific meaning should remain evidence-based.
 
 ---
 
-# Repeated operation example
+# Selected-zone mowing observed on a physical GOAT
 
-The upstream test suite also verifies:
+A named lawn zone was selected through the ECOVACS app and used as its own mowing job.
 
-```python
-CleanAreaV2(
-    CleanMode.FREE_CLEAN,
-    [0],
-    cleanings=2,
-)
-```
-
-which produces:
-
-```json
-{
-  "act": "start",
-  "content": {
-    "type": "freeClean",
-    "value": "2,0"
-  }
-}
-```
-
-The upstream test describes this as:
+The active job was then:
 
 ```text
-FreeClean single room 2x
+started
+paused
+resumed
+stopped
 ```
 
-Again, "room" is generic vacuum terminology from the shared test suite.
-
-For a mower, it is safer to describe the structure as:
-
-```text
-two operations/passes for selected target 0
-```
-
-unless GOAT-specific behaviour has been confirmed.
-
----
-
-# Zone mowing observed on a physical GOAT
-
-Selected-zone mowing has been observed during physical GOAT testing for this documentation project.
-
-A single lawn zone was selected in the ECOVACS application and started as its own mowing job.
-
-The resulting mower behaviour confirmed that:
-
-* a defined lawn zone can be selected independently
-* the mower can start a job scoped to that selection
-* the resulting job uses the normal mowing lifecycle
-* pause is possible during the selected-zone job
-* the job can be resumed
-* the job can be stopped
-
-Observed workflow:
-
-```text
-Select one lawn zone
-       │
-       ▼
-Start zone mowing
-       │
-       ▼
-Mowing selected zone
-       │
-       ▼
-Pause
-       │
-       ▼
-Resume
-       │
-       ▼
-Stop
-```
+This confirms that the physical/app concept exists.
 
 Evidence:
 
-**Device tested / protocol observed**
-
-The test confirms the user-facing behaviour of selected-zone mowing.
-
-Further protocol documentation is required before claiming a universal mapping between an ECOVACS app zone identifier and every generic `CleanAreaV2` mode.
-
----
-
-# Zone name versus zone identifier
-
-The ECOVACS app can display human-readable names for lawn zones.
-
-At protocol level, mowing commands normally require identifiers or encoded target values rather than the human-readable label itself.
-
-Conceptually:
-
 ```text
-ECOVACS app
-"Front lawn"
-     │
-     ▼
-internal zone identifier
-     │
-     ▼
-CleanAreaV2 payload
+APP + DEVICE + PROTOCOL
 ```
 
-This distinction is important for integrations.
-
-A user interface ideally exposes:
+However, protocol research must distinguish:
 
 ```text
-Front lawn
-Back lawn
-Side lawn
-```
-
-while the underlying client sends the identifiers expected by the mower.
-
-The human-readable name should therefore be treated as metadata associated with a protocol-level zone ID.
-
----
-
-# Area lists are not names
-
-`CleanAreaV2` currently accepts:
-
-```python
-list[int | float]
-```
-
-rather than strings representing area names.
-
-This strongly indicates that the low-level operation expects:
-
-* numeric area identifiers
-* coordinate values
-* or another numeric representation
-
-depending on `CleanMode`.
-
-The Python API therefore separates:
-
-```text
-human-readable area metadata
+selected-zone start
 ```
 
 from:
 
 ```text
-numeric command target
+zone settings
 ```
 
-Integrations should maintain the mapping between the two where zone names are available.
+They are related through zone identity but are not the same operation.
 
 ---
 
-# Area mowing support by model
+# Upstream area capability by GOAT model
 
-Current upstream hardware profiles expose `CleanAreaV2` for:
+Reviewed upstream profiles expose `CleanAreaV2` as follows:
 
-| Model                | `CleanAreaV2` |
-| -------------------- | :-----------: |
-| GOAT G1              |       ✓       |
-| GOAT A1600 RTK       |       ✓       |
-| GOAT A3000 LiDAR Pro |       ✓       |
-| GOAT O500 Panorama   |       ✓       |
-| GOAT O1200 LiDAR     |       —       |
+| Model | `CleanAreaV2` |
+| --- | :---: |
+| GOAT G1 | ✓ |
+| GOAT A1600 RTK | ✓ |
+| GOAT A3000 LiDAR Pro | ✓ |
+| GOAT O500 Panorama | ✓ |
+| GOAT O1200 LiDAR | — |
 
-The O1200 profile currently contains:
+The O1200 profile exposes general:
+
+```text
+CleanV2
+```
+
+but no upstream:
+
+```text
+CapabilityCleanAction.area
+```
+
+This remains an implementation/research gap.
+
+---
+
+# O1200 area parameters: a different zone protocol family
+
+O1200 protocol investigation identified:
+
+```text
+getAreaParameter
+setAreaParameter
+onAreaParameter
+```
+
+These commands/messages do not start mowing.
+
+They read and change settings associated with known areas.
+
+Each record contains:
+
+```text
+areaID
+mowHeightLevel
+cutMode
+obstacleHeight
+angle
+```
+
+Python representation:
 
 ```python
-CapabilityClean(
-    action=CapabilityCleanAction(
-        command=CleanV2,
-    ),
+AreaParameter(
+    area_id=...,
+    mow_height_level=...,
+    cut_mode=...,
+    obstacle_height=...,
+    angle=...,
 )
 ```
 
-without:
+Multiple zone records are represented by:
 
 ```text
-area=CleanAreaV2
+AreaParameterEvent
 ```
 
-The other four reviewed profiles expose both the normal command and area command.
+Detailed reference:
+
+[O1200 area parameters](area-parameters.md)
 
 ---
 
-# Important O1200 distinction
+# What `areaID` now establishes
 
-The missing area capability in the current O1200 hardware profile should **not** be interpreted as proof that the physical mower cannot mow named zones.
-
-It means only:
-
-> The current upstream O1200 `deebot_client` hardware profile does not expose `CleanAreaV2` through `CapabilityCleanAction.area`.
-
-Possible explanations include:
-
-1. the O1200 uses a different protocol representation
-2. area mowing has not yet been implemented for this profile
-3. the feature requires additional map/zone information
-4. the feature behaves differently from other GOAT models
-5. the feature exists in the mower/app but is not yet represented by the client
-
-This should remain an open implementation question until confirmed by protocol evidence or testing.
-
----
-
-# Starting an area job versus controlling it
-
-Area selection is mainly relevant when the job starts.
-
-Once the job is active, the normal control lifecycle remains conceptually separate.
+The O1200 area-parameter protocol provides direct evidence that ECOVACS has a zone/area identifier:
 
 ```text
-CleanAreaV2(...)
+areaID
+```
+
+Example:
+
+```text
+"2"
+```
+
+This is stronger than the earlier generic hypothesis that "some numeric field probably identifies the zone".
+
+We can now safely say:
+
+> O1200 area-parameter state is keyed by an ECOVACS `areaID`.
+
+However, this does not yet prove that:
+
+```text
+CleanAreaV2 spotArea value
+```
+
+uses the same exact ID format on O1200.
+
+That relationship should be explicitly correlated before the client wires selected-zone mowing to the same identifier.
+
+---
+
+# Zone name versus `areaID`
+
+The app can show human-readable names such as:
+
+```text
+Front lawn
+Back lawn
+Sentrum
+```
+
+while the area-parameter protocol uses:
+
+```text
+areaID
+```
+
+A likely integration architecture is:
+
+```text
+display name
+    │
+    ▼
+areaID
+    │
+    ├── start selected-zone job
+    └── read/write zone parameters
+```
+
+The `areaID` side is now directly observed for area parameters.
+
+The remaining task is to establish a reliable metadata source:
+
+```text
+areaID → display name
+```
+
+and confirm which mowing-start command consumes that ID.
+
+---
+
+# Per-zone cutting height
+
+O1200 area parameters include:
+
+```text
+mowHeightLevel
+```
+
+This demonstrates that cutting height is zone-specific in this protocol family.
+
+The remaining work is not command discovery.
+
+It is value semantics:
+
+```text
+mowHeightLevel
        │
        ▼
-Selected-zone job starts
-       │
-       ├── Pause
-       │
-       ├── Resume
-       │
-       └── Stop
+app-selected / physical cutting height
 ```
 
-Those subsequent lifecycle actions are handled through the normal `CleanV2` action mechanism.
-
-This means an integration does not necessarily require separate zone-specific versions of:
-
-```text
-Pause
-Resume
-Stop
-```
-
-The selected target belongs to the active mowing job.
+Do not assume raw `10` means `10 mm`.
 
 ---
 
-# Status parsing and custom areas
+# Per-zone cut mode
 
-The common `GetCleanInfo` parser contains handling for:
-
-```text
-customArea
-```
-
-When it encounters a custom-area operation, it extracts the associated area values.
-
-The implementation currently logs them as:
+O1200 area parameters include:
 
 ```text
-Last custom area values (x1,y1,x2,y2)
+cutMode
 ```
 
-This further confirms that `CUSTOM_AREA` in the generic client is treated as coordinate-based selection.
+This is a known zone-specific raw field.
 
-However, this code belongs to the shared ECOVACS client and should not be used alone as evidence that coordinate mowing is available on every GOAT model.
+Open questions:
+
+```text
+Which app option changes it?
+What does each integer mean?
+Does it control pattern, efficiency, passes, or another concept?
+```
+
+Do not automatically equate it with generic `efficiency_mode`.
+
+---
+
+# Per-zone obstacle-height parameter
+
+O1200 area parameters include:
+
+```text
+obstacleHeight
+```
+
+This establishes a zone-specific raw parameter.
+
+Its exact physical unit and app meaning remain unresolved.
+
+This parameter should be kept separate from global AI/avoidance toggles.
+
+---
+
+# Per-zone angle
+
+O1200 area parameters include:
+
+```text
+angle
+```
+
+Observed/test values include:
+
+```text
+0
+136
+180
+```
+
+The original protocol investigation associates this with zone-specific mowing/clipping angle.
+
+The relationship with global:
+
+```text
+settings.cut_direction
+```
+
+is not yet fully established.
+
+---
+
+# Complete-tuple writes
+
+The setter:
+
+```text
+setAreaParameter
+```
+
+writes all values for one area:
+
+```json
+{
+  "areaID": "2",
+  "mowHeightLevel": 10,
+  "cutMode": 7,
+  "obstacleHeight": 1,
+  "angle": 136
+}
+```
+
+This matters for integrations.
+
+Changing only one visible zone setting should preserve the current values of the others.
+
+Recommended flow:
+
+```text
+read AreaParameterEvent
+        │
+        ▼
+find target areaID
+        │
+        ▼
+copy complete area record
+        │
+        ▼
+modify one field
+        │
+        ▼
+SetAreaParameter
+        │
+        ▼
+onAreaParameter confirms state
+```
+
+---
+
+# Getter and push schemas
+
+Getter/push state is list-based:
+
+```json
+{
+  "areaParameters": [
+    {
+      "areaID": "2",
+      "mowHeightLevel": 10,
+      "cutMode": 7,
+      "obstacleHeight": 1,
+      "angle": 136
+    }
+  ]
+}
+```
+
+This allows multiple zones to be represented in one event.
+
+The setter is different: it writes one area using a flat object.
+
+This asymmetry is intentional and should be preserved.
+
+---
+
+# What the area-parameter PRs do not solve
+
+Even with `areaID` and zone settings mapped, the following remain separate research topics:
+
+```text
+exact O1200 selected-zone start command in client architecture
+multi-zone start semantics
+zone ordering
+zone display-name retrieval
+zone geometry
+map object relationships
+schedule → zone relationships
+```
+
+This distinction prevents the documentation from overstating the scope of PR #1767/#1768.
+
+---
+
+# Multi-zone mowing
+
+The generic `CleanAreaV2` can encode more than one numeric target.
+
+GOAT-specific questions remain:
+
+```text
+Does O1200 selected-zone start use one or multiple areaID values?
+What separator/encoding is used?
+Does order matter?
+Does physical mowing order follow payload order?
+Are per-zone parameters read at job start?
+```
+
+These require controlled captures.
+
+---
+
+# Human-readable zone metadata
+
+A complete Home Assistant implementation ideally needs:
+
+```text
+areaID
+display name
+possibly geometry
+possibly ordering
+```
+
+The current area-parameter work gives us `areaID`, but not the display-name source.
+
+This is a meaningful advance because future metadata research can now search specifically for the known IDs.
 
 ---
 
 # Integration design
 
-A mower-oriented integration should avoid exposing generic vacuum terminology directly to users.
-
-Instead of:
+A future mower integration should separate:
 
 ```text
-Clean room
-Spot area
-Free clean
+Zone metadata
+    ├── areaID
+    ├── display name
+    └── geometry
+
+Zone settings
+    ├── mowing height
+    ├── cut mode
+    ├── obstacle-height parameter
+    └── angle
+
+Mowing action
+    ├── selected zone(s)
+    ├── start
+    ├── pause/resume
+    └── stop
 ```
 
-a GOAT integration should ideally expose concepts such as:
-
-```text
-Mow lawn
-Mow zone
-Select zones
-Mow selected area
-```
-
-depending on which protocol behaviours have actually been verified.
-
-## Suggested architecture
-
-Conceptually:
-
-```text
-User selects:
-"Front lawn"
-"Back lawn"
-       │
-       ▼
-Integration resolves zone IDs
-       │
-       ▼
-deebot_client area capability
-       │
-       ▼
-CleanAreaV2
-       │
-       ▼
-ECOVACS mower
-```
-
-This keeps mower-specific terminology in the integration while allowing the shared client to retain its generic protocol abstractions.
+This is more accurate than treating "zone" as one scalar setting.
 
 ---
 
-# Evidence summary
+# Current evidence summary
 
 ## Upstream implemented
 
-Confirmed in upstream source:
+```text
+CapabilityCleanAction.area
+CleanAreaV2
+SPOT_AREA
+CUSTOM_AREA
+FREE_CLEAN
+```
 
-* `CapabilityCleanAction.area`
-* `CleanAreaV2`
-* `CleanMode.SPOT_AREA`
-* `CleanMode.CUSTOM_AREA`
-* `CleanMode.FREE_CLEAN`
-* multiple selected identifiers
-* coordinate-based custom-area payloads
-* `cleanings` prefix for `FREE_CLEAN`
-* area capability on four reviewed GOAT profiles
+on the four upstream GOAT profiles that expose the area capability.
 
-## Upstream tested
+## Device/app observed
 
-The upstream test suite verifies payload construction for:
+```text
+selected-zone mowing
+pause/resume/stop during a selected-zone job
+human-readable zone names
+```
 
-* `spotArea`
-* multiple target identifiers
-* `customArea`
-* coordinate values
-* `freeClean`
-* repeated `freeClean` operation
+## O1200 development/protocol observed
 
-## Device tested / protocol observed
+```text
+areaID
+getAreaParameter
+setAreaParameter
+onAreaParameter
+mowHeightLevel
+cutMode
+obstacleHeight
+angle
+```
 
-Physical GOAT testing confirms:
+## Still open
 
-* selection of a defined lawn zone in the ECOVACS app
-* starting a mowing job for that zone
-* pause during the selected-zone job
-* resume
-* stop
-
-## Not yet fully established
-
-The following require further GOAT-specific investigation:
-
-* exact mapping between app zone IDs and `SPOT_AREA`
-* whether `FREE_CLEAN` has a mower-specific meaning
-* whether `CUSTOM_AREA` is usable for arbitrary GOAT coordinates
-* how human-readable zone names are retrieved
-* multi-zone behaviour on each mower model
-* O1200 area-mowing protocol
-* whether mowing order can be specified for multiple zones
-* whether per-zone mower settings can be attached to a job
+```text
+O1200 selected-zone start capability
+exact mapping between selected-zone start IDs and areaID
+zone names/metadata source
+multi-zone ordering
+complete physical semantics of area-parameter values
+```
 
 ---
 
-# Relevant upstream source files
+# Recommended next experiments
 
-* [`deebot_client/capabilities.py`](https://github.com/DeebotUniverse/client.py/blob/dev/deebot_client/capabilities.py)
-* [`deebot_client/models.py`](https://github.com/DeebotUniverse/client.py/blob/dev/deebot_client/models.py)
-* [`deebot_client/commands/json/clean.py`](https://github.com/DeebotUniverse/client.py/blob/dev/deebot_client/commands/json/clean.py)
-* [`tests/commands/json/test_clean.py`](https://github.com/DeebotUniverse/client.py/blob/dev/tests/commands/json/test_clean.py)
+## Confirm start-ID relationship
 
-## Related documentation
+Capture:
 
-* [Supported models](supported-models.md)
-* [Capability architecture](capabilities.md)
-* [Mowing control](mowing-control.md)
-* Progress and statistics *(planned)*
-* Protocol reference *(planned)*
-* Home Assistant integration *(planned)*
+```text
+start area A
+start area B
+```
+
+and compare the start payload with known `areaID` values from:
+
+```text
+getAreaParameter
+```
+
+Goal:
+
+```text
+prove or disprove selected-zone target == areaID
+```
+
+## Map names
+
+Search map/area metadata for known:
+
+```text
+areaID
+```
+
+values and known app zone names.
+
+Goal:
+
+```text
+areaID → display name
+```
+
+## Map height levels
+
+Change only cutting height for one area and record:
+
+```text
+app height
+mowHeightLevel
+```
+
+## Decode cut mode
+
+Change one app mowing-mode choice at a time and record:
+
+```text
+app label
+cutMode
+```
+
+## Decode obstacle height
+
+Change only the relevant app option and record:
+
+```text
+app label/value
+obstacleHeight
+```
+
+## Compare angle systems
+
+Change zone angle and compare:
+
+```text
+AreaParameter.angle
+CutDirectionEvent.angle
+```
+
+---
+
+# Related documentation
+
+- [Supported models](supported-models.md)
+- [Capabilities](capabilities.md)
+- [Mowing control](mowing-control.md)
+- [O1200 area parameters](area-parameters.md)
+- [Settings](settings.md)
+- [Protocol reference](protocol-reference.md)
+- [Home Assistant](home-assistant.md)
+- [Testing status](testing-status.md)
+- [Known limitations](known-limitations.md)
