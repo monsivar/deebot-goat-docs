@@ -105,6 +105,7 @@ Likewise, a Home Assistant test can prove that an event is exposed correctly as 
 | Stop mowing | ✓ | — | ✓ | ✓ | ✓ | Not exposed as lawn_mower feature | High client confidence |
 | Selected-zone mowing | Partial | — | Generic tests | ✓ behaviour | ✓ | Not exposed | Medium |
 | O1200 area capability | — | — | — | Behaviour confirmed | ✓ | Not exposed | Open implementation gap |
+| O1200 area names / IDs (`GetAreaSet`) | — | ✓ | ✓ | ✓ | ✓ live O1200 | HA branch implemented/tested | High for O1200 metadata |
 | Current mower state | ✓ | — | ✓ | ✓ | ✓ | Implemented/tested | High |
 | Common statistics | ✓ | — | ✓ | ✓ | ✓ | Implemented | High |
 | `mowedArea` | — | ✓ | ✓ | ✓ | ✓ protocol/app | Implemented for progress path | High for O1200 field |
@@ -1062,6 +1063,8 @@ The strongest current project evidence is for:
 - O1200 `mowedArea`
 - O1200 model-gated progress calculation in Home Assistant
 - O1200 model-gated estimated-duration presentation in Home Assistant
+- O1200 `getAreaSet` area-name/ID metadata with live refresh validation
+- Home Assistant `rooms` attribute for O1200 area names in the area-name branch
 - O1200 rain configuration
 - active rain-protection observation
 
@@ -1076,16 +1079,15 @@ Recommended priorities:
 3. determine `obstacleHeight` semantics/unit
 4. clarify area `angle` versus global `cut_direction`
 5. map mowing speed
-6. confirm exact O1200 selected-zone start command and zone metadata
-7. cross-model area-parameter support
+6. confirm exact O1200 selected-zone start target against known `GetAreaSet` area IDs
+7. cross-model area-name and area-parameter support
 8. cross-model progress-statistics verification
 9. behaviour of `StatsEvent.time` throughout an active job
 10. exact AI app-setting mapping
 11. post-rain delay lifecycle
 12. animal-protection runtime behaviour
-13. zone names and metadata
-14. scheduling
-15. GOAT map semantics
+13. scheduling
+14. GOAT map semantics
 
 ---
 
@@ -1098,6 +1100,7 @@ Recommended priorities:
 - [Progress and statistics](progress-and-statistics.md)
 - [Settings](settings.md)
 - [O1200 area parameters](area-parameters.md)
+- [O1200 area names](area-names.md)
 - [Rain and protection](rain-and-protection.md)
 - [Obstacle and AI](obstacle-and-ai.md)
 - [Protocol reference](protocol-reference.md)

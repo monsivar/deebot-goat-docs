@@ -342,41 +342,59 @@ That relationship should be explicitly correlated before the client wires select
 
 # Zone name versus `areaID`
 
-The app can show human-readable names such as:
+PR #1774 substantially resolves the O1200 area-name metadata question.
+
+The development capability uses:
 
 ```text
-Front lawn
-Back lawn
-Sentrum
+GetAreaSet
 ```
 
-while the area-parameter protocol uses:
+with wire command:
 
 ```text
-areaID
+getAreaSet
 ```
 
-A likely integration architecture is:
+to decode area IDs and names into:
+
+```text
+RoomsEvent
+```
+
+Real O1200 validation produced:
+
+```text
+4 → Østkanten
+1 → Sentrum
+2 → Vestkanten
+```
+
+This provides a confirmed tested-device relationship:
+
+```text
+area ID → display name
+```
+
+for the O1200.
+
+The same zone identity can therefore be represented conceptually as:
 
 ```text
 display name
     │
     ▼
-areaID
+area ID
     │
-    ├── start selected-zone job
-    └── read/write zone parameters
+    ├── RoomsEvent / metadata
+    └── AreaParameterEvent / settings
 ```
 
-The `areaID` side is now directly observed for area parameters.
+The remaining open question is not the name mapping itself, but whether the selected-zone mowing **start command** consumes the same identifier directly.
 
-The remaining task is to establish a reliable metadata source:
+See:
 
-```text
-areaID → display name
-```
-
-and confirm which mowing-start command consumes that ID.
+[O1200 area names](area-names.md)
 
 ---
 
@@ -552,7 +570,7 @@ Even with `areaID` and zone settings mapped, the following remain separate resea
 exact O1200 selected-zone start command in client architecture
 multi-zone start semantics
 zone ordering
-zone display-name retrieval
+selected-zone start target ↔ known area IDs
 zone geometry
 map object relationships
 schedule → zone relationships
@@ -694,20 +712,14 @@ Goal:
 prove or disprove selected-zone target == areaID
 ```
 
-## Map names
+## Verify selected-zone target IDs
 
-Search map/area metadata for known:
-
-```text
-areaID
-```
-
-values and known app zone names.
+Use `GetAreaSet` to record the known area IDs and names, then compare those IDs with the outgoing selected-zone start payload.
 
 Goal:
 
 ```text
-areaID → display name
+prove or disprove selected-zone target == known area ID
 ```
 
 ## Map height levels
@@ -754,6 +766,7 @@ CutDirectionEvent.angle
 - [Capabilities](capabilities.md)
 - [Mowing control](mowing-control.md)
 - [O1200 area parameters](area-parameters.md)
+- [O1200 area names](area-names.md)
 - [Settings](settings.md)
 - [Protocol reference](protocol-reference.md)
 - [Home Assistant](home-assistant.md)

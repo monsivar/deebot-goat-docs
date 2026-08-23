@@ -302,6 +302,111 @@ The reviewed O1200 upstream profile does not.
 
 ---
 
+# O1200 area-name metadata
+
+## `getAreaSet`
+
+Python:
+
+```text
+GetAreaSet
+```
+
+Wire:
+
+```text
+getAreaSet
+```
+
+Direction:
+
+```text
+GET
+```
+
+Request:
+
+```json
+{
+  "mid": "1",
+  "aid": "0",
+  "type": "ar"
+}
+```
+
+The response carries compressed:
+
+```text
+subsets
+```
+
+data.
+
+The development parser uses:
+
+```text
+decompress_base64_data
+```
+
+then decodes the JSON into:
+
+```text
+RoomsEvent
+```
+
+with:
+
+```text
+Room.id
+Room.name
+```
+
+Real O1200 validation on firmware `1.13.10` produced:
+
+```text
+4 → Østkanten
+1 → Sentrum
+2 → Vestkanten
+```
+
+Status:
+
+**Fork / Observed / Tested / Device validated**
+
+Development capability:
+
+```python
+CapabilityClean(
+    ...,
+    areas=CapabilityEvent(
+        RoomsEvent,
+        [GetAreaSet()],
+    ),
+)
+```
+
+Important:
+
+```text
+CapabilityClean.areas
+```
+
+provides area metadata.
+
+It does **not** imply:
+
+```text
+capabilities.map
+```
+
+and PR #1774 intentionally leaves full map support unset.
+
+See:
+
+[O1200 area names](area-names.md)
+
+---
+
 # O1200 area-parameter protocol
 
 This is a **separate protocol family from selected-zone start**.
@@ -1169,6 +1274,7 @@ This is separate from fall/lifted alarm volume.
 | `getCleanInfo_V2` | `GetCleanInfoV2` | GET | `StateEvent` | Upstream |
 | `charge` | `Charge` | EXECUTE | `StateEvent` | Upstream |
 | `getChargeState` | `GetChargeState` | GET | `StateEvent` | Upstream |
+| `getAreaSet` | `GetAreaSet` | GET | `RoomsEvent` | Fork |
 | `getAreaParameter` | `GetAreaParameter` | GET | `AreaParameterEvent` | Fork |
 | `setAreaParameter` | `SetAreaParameter` | SET | later `AreaParameterEvent` | Fork |
 | `onAreaParameter` | `OnAreaParameter` | PUSH | `AreaParameterEvent` | Fork |
@@ -1379,7 +1485,7 @@ zone angle ↔ global cut_direction
 mowing speed
 O1200 selected-zone start capability
 areaID ↔ selected-zone start ID
-areaID ↔ display name
+cross-model area-name support
 multi-zone semantics
 AI app-label mapping
 explicit separate ETA field
@@ -1427,6 +1533,7 @@ Prefer minimal payload examples.
 - [Mowing control](mowing-control.md)
 - [Zones and areas](zones-and-areas.md)
 - [O1200 area parameters](area-parameters.md)
+- [O1200 area names](area-names.md)
 - [Progress and statistics](progress-and-statistics.md)
 - [Settings](settings.md)
 - [Rain and protection](rain-and-protection.md)

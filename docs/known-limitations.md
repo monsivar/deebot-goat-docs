@@ -51,7 +51,7 @@ Major known limitations currently include:
 - mowing speed not mapped
 - no separate explicit ECOVACS ETA field identified
 - O1200 progress semantics not yet cross-model verified
-- zone names and zone metadata not fully mapped
+- O1200 area names/IDs are mapped in development via `getAreaSet`, but selected-zone start and full zone geometry remain separate gaps
 - no complete GOAT mower map abstraction
 - AI/obstacle settings not fully correlated with ECOVACS app wording
 - physical effects of AI settings not systematically tested
@@ -193,37 +193,63 @@ The correct solution should be based on captured O1200 traffic rather than copyi
 
 ---
 
-# Zone names are not fully exposed
+# O1200 area names are mapped in development
 
-The official app can present human-readable lawn-area names.
+The status of area-name metadata changed with PR #1774.
 
-A complete integration needs a mapping conceptually similar to:
-
-```text
-"Front lawn"
-      │
-      ▼
-zone identifier
-      │
-      ▼
-mowing command
-```
-
-The current research does not establish a complete source for:
+For the researched O1200, the development client now exposes:
 
 ```text
-zone ID
-zone name
-zone geometry
-zone ordering
-zone metadata
+CapabilityClean.areas
 ```
+
+using:
+
+```text
+GetAreaSet
+RoomsEvent
+Room
+```
+
+Real-device validation produced:
+
+```text
+4 → Østkanten
+1 → Sentrum
+2 → Vestkanten
+```
+
+and a live refresh test confirmed that subscribing to `RoomsEvent` triggers `getAreaSet` and returns the expected names and IDs.
 
 Status:
 
-**Incomplete**
+**Protocol observed / Fork implemented / Python tested / Device validated**
 
----
+The Home Assistant area-name development branch also exposes these mappings through the mower's:
+
+```text
+rooms
+```
+
+extra-state attribute.
+
+## Remaining limitation
+
+This does **not** mean selected-zone mowing control is solved.
+
+The reviewed upstream O1200 profile still lacks:
+
+```text
+CapabilityCleanAction.area
+```
+
+and the exact relationship between the selected-zone start target and the known `GetAreaSet` IDs should be explicitly confirmed.
+
+Likewise, area names do not imply complete map/geometry support.
+
+See:
+
+[O1200 area names](area-names.md)
 
 # Multi-zone mowing semantics
 
@@ -1226,7 +1252,7 @@ unless the feature has been verified across enough models to justify the broader
 | Medium | Explicit ETA-field search | Distinguishes ECOVACS field from integration interpretation |
 | Medium | Rain-delay lifecycle | Required for accurate runtime state |
 | Medium | Animal-protection runtime | Required for accurate status/automation |
-| Medium | Zone metadata | Required for user-friendly zone names |
+| Medium | Selected-zone target ↔ known area IDs | Required to connect O1200 name metadata to native zone mowing |
 | Medium | Scheduling | Important mower automation |
 | Medium | GOAT map semantics | Required for map/zone integration |
 | Medium | Protection flags | Prevents misleading security labels |
@@ -1266,6 +1292,7 @@ This keeps implementation evidence separate from assumption.
 - [Progress and statistics](progress-and-statistics.md)
 - [Settings](settings.md)
 - [O1200 area parameters](area-parameters.md)
+- [O1200 area names](area-names.md)
 - [Rain and protection](rain-and-protection.md)
 - [Obstacle and AI](obstacle-and-ai.md)
 - [Protocol reference](protocol-reference.md)

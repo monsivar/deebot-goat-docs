@@ -353,6 +353,60 @@ See:
 
 ---
 
+# O1200 area names and IDs
+
+PR #1774 adds a dedicated mower-area metadata capability:
+
+```text
+CapabilityClean.areas
+```
+
+using:
+
+```text
+GetAreaSet
+RoomsEvent
+Room
+```
+
+The command:
+
+```text
+getAreaSet
+```
+
+requests:
+
+```json
+{"mid": "1", "aid": "0", "type": "ar"}
+```
+
+and decodes the compressed `subsets` response into area IDs and names.
+
+Real O1200 validation on firmware `1.13.10` produced:
+
+```text
+4 → Østkanten
+1 → Sentrum
+2 → Vestkanten
+```
+
+This resolves the O1200-specific:
+
+```text
+area ID → display name
+```
+
+metadata relationship for the tested device.
+
+It does **not** imply full map support, and it does not by itself establish the selected-zone start command.
+
+See:
+
+[O1200 area names](area-names.md)
+
+---
+
 # O1200 cutting height is protocol-mapped
 
 The O1200 development implementation maps cutting-height state through:
@@ -855,8 +909,8 @@ obstacleHeight → exact meaning/unit
 area angle ↔ global cut_direction relationship
 mowing speed
 selected-zone start command/capability for O1200
-zone names and metadata
 multi-zone behaviour
+cross-model area-name support
 AI/app-setting correlation
 rain-delay lifecycle
 animal-protection runtime behaviour
@@ -892,6 +946,10 @@ See:
 ## O1200 zone settings / cutting height / cut mode
 
 [O1200 area parameters](area-parameters.md)
+
+## O1200 area IDs and zone names
+
+[O1200 area names](area-names.md)
 
 ## Progress
 
@@ -941,6 +999,7 @@ README.md
 │   ├── progress-and-statistics.md
 │   ├── settings.md
 │   ├── area-parameters.md
+│   ├── area-names.md
 │   ├── rain-and-protection.md
 │   ├── obstacle-and-ai.md
 │   ├── protocol-reference.md

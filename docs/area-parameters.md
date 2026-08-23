@@ -376,28 +376,34 @@ Example:
 
 The protocol evidence establishes that area parameters are associated with area IDs.
 
-However, a complete user-facing integration still needs a reliable mapping between:
+PR #1774 adds the complementary area-name capability using:
 
 ```text
-area ID
+GetAreaSet → RoomsEvent
 ```
 
-and:
+Real O1200 validation provides mappings such as:
 
 ```text
-human-readable zone name
+1 → Sentrum
+2 → Vestkanten
+4 → Østkanten
 ```
 
-For example:
+This means the tested O1200 now has a concrete metadata path:
 
 ```text
-"Front lawn"
-     │
-     ▼
-areaID = "2"
+Room.id / area ID
+      │
+      ├── Room.name
+      └── AreaParameter.area_id
 ```
 
-That metadata relationship remains a separate part of GOAT zone research.
+The client types differ (`Room.id` is numeric while `AreaParameter.area_id` is a string), so integrations should normalise intentionally when joining the two data sets.
+
+See:
+
+[O1200 area names](area-names.md)
 
 ---
 
@@ -755,13 +761,13 @@ This closely matches the protocol.
 
 A richer design could expose values for a selected/current zone.
 
-This would require reliable:
+The O1200 development work now has area-name metadata through:
 
 ```text
-area ID ↔ zone name
+GetAreaSet → RoomsEvent
 ```
 
-metadata.
+so the remaining Home Assistant questions are primarily UI architecture, state-preserving writes and selected-zone start control rather than name discovery.
 
 ## Individual parameter entities per zone
 
@@ -891,6 +897,7 @@ This will determine whether the global and zone-specific direction mechanisms ov
 - [Supported models](supported-models.md)
 - [Capabilities](capabilities.md)
 - [Zones and areas](zones-and-areas.md)
+- [O1200 area names](area-names.md)
 - [Settings](settings.md)
 - [Obstacle and AI](obstacle-and-ai.md)
 - [Protocol reference](protocol-reference.md)

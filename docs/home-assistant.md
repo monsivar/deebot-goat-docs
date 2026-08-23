@@ -586,33 +586,93 @@ if evidence shows they are separate concepts.
 
 ---
 
-# Area parameters and zone metadata
+# Area names and IDs in Home Assistant
 
-A good user-facing implementation needs:
-
-```text
-area_id → display name
-```
-
-because users should choose:
+The client area-name development adds:
 
 ```text
-Front lawn
-Back lawn
-Side lawn
+CapabilityClean.areas
+    │
+    ▼
+RoomsEvent
 ```
 
-rather than:
+and the Home Assistant branch:
 
 ```text
-2
-3
-4
+feature/ecovacs-mower-area-names
 ```
 
-The area-parameter PRs establish the `areaID` side of this mapping.
+subscribes to that event for mower entities.
 
-The zone-name metadata source remains a separate research task.
+The current branch exposes an extra-state attribute:
+
+```text
+rooms
+```
+
+on the mower.
+
+The automated O1200 test verifies:
+
+```yaml
+rooms:
+  ostkanten: 4
+  sentrum: 1
+  vestkanten: 2
+```
+
+The original ECOVACS names are:
+
+```text
+Østkanten
+Sentrum
+Vestkanten
+```
+
+Home Assistant uses:
+
+```text
+slugify
+```
+
+for the attribute keys, so `Østkanten` becomes `ostkanten`.
+
+The attribute is marked as unrecorded to avoid unnecessary recorder/history storage.
+
+Status:
+
+**Client fork implemented / Device validated / HA development implemented / HA tested**
+
+## Duplicate names
+
+The branch preserves multiple IDs if different areas produce the same slugified name.
+
+Conceptually:
+
+```text
+one matching name
+    → name: id
+
+duplicate matching names
+    → name: [id1, id2, ...]
+```
+
+## Design implication
+
+The O1200-specific:
+
+```text
+area ID → display name
+```
+
+metadata problem is now substantially solved in development.
+
+The remaining selected-zone problem is how to **start mowing the chosen ID**, not how to discover its name.
+
+See:
+
+[O1200 area names](area-names.md)
 
 ---
 
@@ -1041,6 +1101,7 @@ estimated mowing duration
 
 ```text
 area_parameter
+area names / `RoomsEvent` metadata (separate HA area-name branch)
 AI recognition
 Humanoid AI / smart avoidance
 narrow adaptation
@@ -1055,7 +1116,7 @@ runtime protection state
 ```text
 mowing speed
 O1200 selected-zone start capability
-zone display-name metadata
+selected-zone start capability
 unresolved security-state semantics
 ```
 
@@ -1126,6 +1187,7 @@ Home Assistant progress branch:
 - [Mowing control](mowing-control.md)
 - [Zones and areas](zones-and-areas.md)
 - [O1200 area parameters](area-parameters.md)
+- [O1200 area names](area-names.md)
 - [Progress and statistics](progress-and-statistics.md)
 - [Settings](settings.md)
 - [Rain and protection](rain-and-protection.md)
