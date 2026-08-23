@@ -2,52 +2,95 @@
 
 This page explains how ECOVACS GOAT mower functionality is represented by the capability architecture in [`DeebotUniverse/client.py`](https://github.com/DeebotUniverse/client.py).
 
-Last reviewed against the upstream `dev` branch: **2026-08-23**.
+Last reviewed:
+
+- upstream `DeebotUniverse/client.py` `dev`
+- O1200 area-name development in [`PR #1774`](https://github.com/DeebotUniverse/client.py/pull/1774)
+
+Date: **2026-08-24**
+
+> [!IMPORTANT]
+> PR #1774 was still open at the time of this review.
+>
+> The `CapabilityClean.areas` / `GetAreaSet` functionality described as development support is therefore not part of the reviewed upstream `dev` baseline unless stated otherwise.
 
 ## Overview
 
 `deebot_client` uses a capability model to describe what each supported device can do.
 
-For GOAT devices, a hardware profile creates a `Capabilities` object and identifies the device as:
+For GOAT devices, a hardware profile creates a:
+
+```python
+Capabilities(...)
+```
+
+object and identifies the device as:
 
 ```python
 device_type=DeviceType.MOWER
 ```
 
-The same general capability framework is also used for DEEBOT vacuum robots, so some class and command names still use terms such as `clean`, even when the physical device is a robotic lawn mower.
+The same capability framework is shared with DEEBOT vacuum robots.
 
-For mower documentation, these should normally be interpreted as mowing operations.
+As a result, common names such as:
 
-At a high level, the architecture can be viewed as:
+```text
+clean
+cleaning
+room
+CleanAction
+CleanMode
+```
+
+are still used internally even when the physical device is a robotic mower.
+
+For GOAT documentation and integrations, these normally map conceptually to:
+
+```text
+mow
+mowing
+lawn area / zone
+mowing action
+mowing/area mode
+```
+
+---
+
+# Architecture
+
+At a high level:
 
 ```text
 Hardware profile
       │
       ▼
- Capabilities
+Capabilities
       │
       ├── commands
       │     │
       │     ▼
-      │  ECOVACS API / device
+      │  ECOVACS protocol
       │
       └── events
             │
             ▼
-      current client state
+      normalised state
+            │
+            ▼
+      consumer integration
 ```
 
-A hardware profile therefore describes which generic client capabilities are connected to the commands and events supported for that device.
+A hardware profile therefore describes which normalised capabilities are enabled for a particular model.
 
-## Commands, messages and events
+---
 
-Three concepts are particularly important when reading `deebot_client`.
+# Commands, messages and events
 
-### Command
+## Command
 
-A command requests something from or sends an action to the mower.
+A command requests information or asks the mower to perform/change something.
 
-Examples include:
+Examples:
 
 ```text
 GetBattery
@@ -55,77 +98,126 @@ Charge
 CleanV2
 GetCleanInfoV2
 GetStats
-SetBorderSwitch
+GetAreaSet
+SetAreaParameter
+SetRainDelay
 ```
 
-Commands may be used to:
+Commands can be used to:
 
-* request the current value of a setting
-* request mower status
-* start or control an operation
-* change a setting
+- request state
+- start or control mowing
+- return to the station
+- read configuration
+- change configuration
 
-### Message
+## Message
 
 A message represents data returned or pushed through the ECOVACS protocol.
 
-Message handlers interpret the protocol payload and convert relevant information into client events.
+Examples include:
 
-### Event
+```text
+onStats
+onAreaParameter
+onRainDelay
+onProtectState
+```
+
+Message handlers parse protocol payloads and publish normalised events.
+
+## Event
 
 An event is the normalised state exposed internally by `deebot_client`.
 
-Examples include:
+Examples:
 
 ```text
 BatteryEvent
 StateEvent
 StatsEvent
-BorderSwitchEvent
-LifeSpanEvent
+RoomsEvent
+AreaParameterEvent
+RainDelayEvent
+ProtectStateEvent
 ```
 
-Consumers of the library should generally depend on these normalised events rather than directly interpreting raw ECOVACS protocol payloads.
+Consumers should generally depend on these events rather than directly parse ECOVACS payloads.
 
-A simplified flow for a readable setting is therefore:
+---
+
+# Common readable flow
+
+A typical readable capability is:
 
 ```text
-Get command
+GET command
     │
     ▼
 ECOVACS response
     │
     ▼
-Message handler
+parser/message handling
     │
     ▼
 Event
 ```
 
-For a writable setting:
+For example, in PR #1774:
 
 ```text
-Set command
+GetAreaSet
     │
     ▼
-ECOVACS/device
+getAreaSet response
     │
     ▼
-response or later status update
+compressed subsets decoded
     │
     ▼
+RoomsEvent
+```
+
+---
+
+# Common writable flow
+
+A typical writable setting follows:
+
+```text
+GET current state
+      │
+      ▼
+Event
+      ▲
+      │
+SET new state
+```
+
+Some settings additionally receive a push message:
+
+```text
+SET
+ │
+ ▼
+device accepts command
+ │
+ ▼
+on...
+ │
+ ▼
 Event
 ```
 
-## Core capability types
+The O1200 area-parameter capability is one example.
 
-The capability module defines several reusable capability classes.
+---
 
-These classes describe different interaction patterns.
+# Core capability types
 
 ## `CapabilityEvent`
 
-`CapabilityEvent` represents a value that can be obtained and represented by an event.
+`CapabilityEvent` represents state that can be refreshed and represented by an event.
 
 Conceptually:
 
@@ -138,10 +230,10 @@ CapabilityEvent(
 
 It contains:
 
-* the event type
-* one or more commands that can refresh that event
+- an event type
+- zero or more commands that can refresh that event
 
-A mower battery capability is an example:
+Example:
 
 ```python
 battery=CapabilityEvent(
@@ -150,11 +242,22 @@ battery=CapabilityEvent(
 )
 ```
 
-This means that `BatteryEvent` represents battery state and `GetBattery()` can be used to refresh it.
+PR #1774 uses the same abstraction for O1200 area names:
 
-## `CapabilitySet`
+```python
+areas=CapabilityEvent(
+    RoomsEvent,
+    [GetAreaSet()],
+)
+```
 
-`CapabilitySet` extends `CapabilityEvent` with a command for changing the value.
+This is significant because zone names become a normal capability-driven state source rather than a special-case map parser.
+
+---
+
+# `CapabilitySet`
+
+`CapabilitySet` extends `CapabilityEvent` with a setter.
 
 Conceptually:
 
@@ -166,93 +269,132 @@ CapabilitySet(
 )
 ```
 
-This creates the common pattern:
+Pattern:
 
 ```text
-GET current value
-SET new value
-EVENT representing current value
+GET
+SET
+EVENT
 ```
 
-GOAT cutting direction currently uses this type.
+Examples in GOAT development include structured mower settings such as O1200 area parameters.
 
-## `CapabilitySetEnable`
+---
 
-`CapabilitySetEnable` is a specialised `CapabilitySet` for boolean settings.
+# `CapabilitySetEnable`
 
-Its writable value is effectively:
+`CapabilitySetEnable` is a specialised boolean writable capability.
+
+Its user-facing value is effectively:
 
 ```text
 True / False
 ```
 
-Several existing GOAT settings use this pattern, including:
+Common GOAT examples include:
 
-* advanced mode
-* border switch
-* child lock
-* move-up warning
-* cross-map border warning
-* safe protect
-* TrueDetect
-
-This pattern is particularly useful for integrations because it maps naturally to an on/off control.
-
-## `CapabilityExecute`
-
-`CapabilityExecute` represents an action rather than a persistent state.
-
-Conceptually:
-
-```python
-CapabilityExecute(SomeCommand)
+```text
+advanced_mode
+border_switch
+child_lock
+moveup_warning
+cross_map_border_warning
+safe_protect
+true_detect
 ```
 
-Examples include actions such as:
+Development-only O1200 examples include:
 
-* return to / charge at station
-* play sound
+```text
+ai_recognition
+humanoid_ai
+narrow_adapt
+```
 
-There does not need to be a directly associated setting value.
+This capability shape maps naturally to a Home Assistant switch.
 
-## `CapabilityTypes`
+---
 
-Some capabilities define a known set of supported values.
+# `CapabilityExecute`
 
-`CapabilityTypes` provides the list of types or enum values supported by a capability.
+`CapabilityExecute` represents an action rather than a persistent configuration value.
 
-This allows integrations to know which options should be presented rather than accepting arbitrary values.
+Example:
 
-## `CapabilitySetTypes`
+```python
+CapabilityExecute(Charge)
+```
+
+This is appropriate for actions such as:
+
+```text
+return to charging station
+play sound
+```
+
+---
+
+# `CapabilityTypes`
+
+`CapabilityTypes` describes a known set of supported enum/type values.
+
+This is useful when an integration needs to know which options are valid.
+
+---
+
+# `CapabilitySetTypes`
 
 `CapabilitySetTypes` combines:
 
-* readable event state
-* a set command
-* an explicitly supported set of values
+- readable state
+- setter
+- explicit supported options
 
-This is useful for settings that behave like selectable modes.
+It is useful for settings that behave like a select/list rather than a free numeric value.
 
-## `CapabilityNumber`
+---
 
-`CapabilityNumber` represents a numeric setting and adds:
+# `CapabilityNumber`
+
+`CapabilityNumber` represents a numeric writable setting with explicit bounds.
+
+Conceptually:
 
 ```text
+event
+get
+set
 min
 max
 ```
 
-to the underlying readable/writable capability.
+This is suitable when the physical semantics are known.
 
-This allows integrations to expose an appropriate numeric control with known limits.
+For example, a user-facing cutting-height number should only use this kind of abstraction once:
 
-The upstream GOAT profiles reviewed here do not currently use this type for cutting height, but the capability abstraction is suitable for settings represented by bounded numeric values.
+```text
+minimum
+maximum
+step
+unit
+raw-value conversion
+```
 
-## `CapabilityCleanAction`
+are established.
 
-Mowing control is represented through the shared `CapabilityCleanAction` abstraction.
+The O1200 raw `mowHeightLevel` field is mapped in development, but its complete physical-height mapping is still being researched.
 
-It contains:
+---
+
+# `CapabilityCleanAction`
+
+Mowing lifecycle control is represented through:
+
+```text
+CapabilityCleanAction
+```
+
+The reviewed structure contains:
 
 ```python
 command
@@ -261,73 +403,469 @@ area
 
 where:
 
-* `command` performs the main start/pause/resume/stop action
-* `area` optionally starts an area-specific operation
-
-The area command is optional:
-
-```python
-area: ... | None = None
+```text
+command
 ```
 
-This is why one mower profile can support the general mowing action without necessarily exposing area mowing through the same capability.
-
-## `CapabilityClean`
-
-`CapabilityClean` contains the common operation capability.
-
-The shared abstraction can additionally contain features used by other device types, including:
+is the main start/pause/resume/stop command and:
 
 ```text
-continuous
-count
-log
-preference
-work_mode
+area
 ```
 
-The currently reviewed GOAT hardware profiles primarily use the `action` part of this structure.
+is an optional selected-area start command.
 
-For mower documentation, the `clean` capability should generally be understood as the **mowing-operation capability**.
+Conceptually:
 
-## `CapabilityLifeSpan`
+```python
+CapabilityCleanAction(
+    command=CleanV2,
+    area=CleanAreaV2,
+)
+```
 
-`CapabilityLifeSpan` represents consumable or maintenance lifetime information.
+The area command is optional.
 
-It combines:
+This allows a mower to support general mowing without exposing selected-area start through the same command family.
 
-* `LifeSpanEvent`
-* commands for retrieving lifetime data
-* a list of supported lifetime types
-* a reset command
+---
 
-For GOAT mowers, known upstream lifetime types include:
+# `CapabilityClean`
+
+`CapabilityClean` is the shared operation/mowing capability.
+
+In the reviewed upstream baseline it contains the main:
+
+```text
+action
+```
+
+capability and optional shared fields used by different ECOVACS product families.
+
+PR #1774 adds another optional field:
+
+```python
+areas: CapabilityEvent[RoomsEvent] | None = None
+```
+
+This is a major conceptual distinction.
+
+The development structure becomes:
+
+```text
+CapabilityClean
+├── action
+│   ├── command
+│   └── area
+│
+└── areas
+    └── readable zone/area metadata
+```
+
+## `action.area` versus `areas`
+
+These two fields serve different purposes.
+
+### `clean.action.area`
+
+Means:
+
+```text
+How can a selected area/zone mowing job be started?
+```
+
+For example:
+
+```text
+CleanAreaV2
+```
+
+### `clean.areas`
+
+Means:
+
+```text
+Which named areas/zones does the device report?
+```
+
+PR #1774 uses:
+
+```text
+RoomsEvent
+```
+
+with:
+
+```text
+GetAreaSet()
+```
+
+for this metadata.
+
+Therefore:
+
+```text
+clean.action.area
+```
+
+and:
+
+```text
+clean.areas
+```
+
+must not be treated as aliases.
+
+A device can expose one without the other.
+
+---
+
+# O1200 area-name capability
+
+PR #1774 wires the researched O1200 profile conceptually as:
+
+```python
+clean=CapabilityClean(
+    action=CapabilityCleanAction(
+        command=CleanV2,
+    ),
+    areas=CapabilityEvent(
+        RoomsEvent,
+        [GetAreaSet()],
+    ),
+)
+```
+
+This means the O1200 development profile can:
+
+```text
+start general mowing
+```
+
+and:
+
+```text
+read named lawn areas
+```
+
+while still not exposing:
+
+```text
+CleanAreaV2
+```
+
+through:
+
+```text
+clean.action.area
+```
+
+That separation accurately reflects the current evidence.
+
+Status:
+
+```text
+area names: fork implemented / tested / live-device verified
+selected-area start capability: still unresolved for O1200
+```
+
+---
+
+# `RoomsEvent`
+
+PR #1774 deliberately reuses the existing:
+
+```text
+RoomsEvent
+```
+
+and:
+
+```text
+Room
+```
+
+models.
+
+For GOAT, the generic "room" abstraction represents a mower area/zone.
+
+A decoded O1200 event can contain:
+
+```python
+RoomsEvent(
+    map_id="1",
+    rooms=[
+        Room("Østkanten", 4, ""),
+        Room("Sentrum", 1, ""),
+        Room("Vestkanten", 2, ""),
+    ],
+)
+```
+
+This is useful because existing consumers already understand the event model.
+
+At the user-facing layer:
+
+```text
+room
+```
+
+should normally be presented as:
+
+```text
+area
+```
+
+or:
+
+```text
+zone
+```
+
+for a mower.
+
+---
+
+# `GetAreaSet`
+
+PR #1774 adds:
+
+```text
+GetAreaSet
+```
+
+with wire name:
+
+```text
+getAreaSet
+```
+
+Request arguments:
+
+```json
+{
+  "mid": "1",
+  "aid": "0",
+  "type": "ar"
+}
+```
+
+The command:
+
+1. verifies the returned type is `ar`
+2. reads the compressed `subsets` field
+3. decompresses it using the existing helper
+4. parses the decoded JSON structure
+5. creates `Room` objects
+6. publishes a `RoomsEvent`
+
+Conceptually:
+
+```text
+compressed subsets
+      │
+      ▼
+decompress
+      │
+      ▼
+area records
+      │
+      ├── map ID
+      ├── area ID
+      └── area name
+      │
+      ▼
+RoomsEvent
+```
+
+---
+
+# Area names do not imply map support
+
+PR #1774 explicitly leaves:
+
+```text
+capabilities.map
+```
+
+unset for O1200.
+
+This is important.
+
+The capability means:
+
+```text
+named area metadata is available
+```
+
+not:
+
+```text
+full map capability is implemented
+```
+
+A mower can therefore have:
+
+```text
+clean.areas != None
+```
+
+while:
+
+```text
+map == None
+```
+
+This is an intentional architecture decision.
+
+---
+
+# Event refresh mapping
+
+`Capabilities` recursively builds a mapping from event types to their refresh commands.
+
+Conceptually:
+
+```text
+BatteryEvent
+    ↓
+GetBattery
+
+VolumeEvent
+    ↓
+GetVolume
+
+RoomsEvent
+    ↓
+GetAreaSet
+```
+
+for the O1200 area-name development profile.
+
+Therefore subscribing to:
+
+```text
+RoomsEvent
+```
+
+can trigger the capability refresh machinery without the consumer knowing the raw `getAreaSet` command.
+
+PR #1774 specifically tests that:
+
+```text
+get_refresh_commands(RoomsEvent)
+```
+
+returns:
+
+```text
+[GetAreaSet()]
+```
+
+for O1200 development support.
+
+---
+
+# Capability-driven integration
+
+This architecture allows consumers to ask:
+
+```text
+Does the device expose clean.areas?
+```
+
+instead of:
+
+```python
+if model == "O1200":
+    send getAreaSet
+```
+
+Preferred pattern:
+
+```text
+capability exists?
+       │
+    ┌──┴──┐
+    │     │
+   no    yes
+    │     │
+    ▼     ▼
+skip   subscribe/use
+```
+
+This is especially valuable as more GOAT models are investigated.
+
+---
+
+# O1200 area names and Home Assistant
+
+The corresponding Home Assistant development branch subscribes to:
+
+```text
+RoomsEvent
+```
+
+when:
+
+```text
+capabilities.clean.areas
+```
+
+exists.
+
+The mower entity then exposes a:
+
+```text
+rooms
+```
+
+attribute mapping slugified names to IDs.
+
+The tested example is equivalent to:
+
+```yaml
+rooms:
+  ostkanten: 4
+  sentrum: 1
+  vestkanten: 2
+```
+
+This confirms that the capability architecture is sufficient for a consumer integration without requiring Home Assistant to understand `getAreaSet` or compressed ECOVACS payloads.
+
+---
+
+# `CapabilityLifeSpan`
+
+`CapabilityLifeSpan` represents maintenance/consumable information.
+
+Known reviewed GOAT lifetime types include:
 
 ```text
 BLADE
 LENS_BRUSH
 ```
 
-and on the O1200 LiDAR profile additionally:
+The O1200 additionally exposes:
 
 ```text
 WEED_ROPE
 TRIMMER_BRUSH
 ```
 
-The hardware profile determines which of these lifetime types are exposed for each mower.
+The hardware profile selects which lifetime types apply.
 
-## `CapabilityStats`
+---
 
-Statistics are grouped into:
+# `CapabilityStats`
 
-```python
-clean
-report
-total
+Statistics are grouped under:
+
+```text
+CapabilityStats
 ```
 
-which correspond to:
+with common event groups:
 
 ```text
 StatsEvent
@@ -335,25 +873,31 @@ ReportStatsEvent
 TotalStatsEvent
 ```
 
-The generic class uses the word `clean`, but on a mower the values should be interpreted in the context of mowing activity.
-
-Detailed mower-specific fields are documented separately.
-
-## `CapabilitySettings`
-
-`CapabilitySettings` collects device settings into a common structure.
-
-The generic class contains settings used across multiple ECOVACS product types, so not every field is relevant to mowers.
-
-Examples in the common structure include vacuum-oriented settings such as:
+Development work also adds:
 
 ```text
-carpet_auto_fan_boost
-mop_auto_wash_frequency
-sweep_mode
+mowing_job_progress
 ```
 
-and settings currently used by GOAT profiles such as:
+as a model-semantic flag.
+
+For the researched O1200 path, it tells consumers that:
+
+```text
+area
+mowed_area
+time
+```
+
+have mower-job-progress semantics.
+
+---
+
+# `CapabilitySettings`
+
+`CapabilitySettings` collects device settings.
+
+Reviewed upstream GOAT settings include:
 
 ```text
 advanced_mode
@@ -367,19 +911,27 @@ true_detect
 volume
 ```
 
-Each hardware profile selects only the capabilities that are appropriate for that device.
+Development O1200 work adds additional mower-specific settings including:
 
-This distinction is important:
+```text
+area_parameter
+ai_recognition
+animal_protection
+humanoid_ai
+narrow_adapt
+rain_delay
+fall_volume
+```
 
-> The existence of a field in `CapabilitySettings` does not mean that every device supports it.
+The existence of a field in the dataclass does not establish support.
 
-Support is determined by the device's hardware profile.
+Support is determined by the hardware profile.
 
-## Top-level `Capabilities`
+---
 
-The main `Capabilities` object contains the features exposed for a device.
+# Top-level `Capabilities`
 
-The current shared structure includes:
+The shared top-level structure includes concepts such as:
 
 ```text
 device_type
@@ -389,111 +941,86 @@ charge
 clean
 custom
 error
-fan_speed
 life_span
 map
 network
 play_sound
 settings
 state
-station
 stats
-water
 ```
 
-Some fields are mandatory in the common model, while others are optional.
+For GOAT:
 
-For a GOAT mower, these generic terms map approximately as follows:
+| Capability | Mower interpretation |
+| --- | --- |
+| `device_type` | identifies mower |
+| `availability` | reachable/available |
+| `battery` | battery status |
+| `charge` | return to / use station |
+| `clean` | mowing actions and area metadata |
+| `custom` | low-level command access |
+| `error` | mower errors |
+| `life_span` | blade/accessory maintenance |
+| `map` | map capability when explicitly supported |
+| `network` | network information |
+| `play_sound` | trigger sound |
+| `settings` | mower/device settings |
+| `state` | operational state |
+| `stats` | mowing statistics |
 
-| `deebot_client` capability | GOAT interpretation               |
-| -------------------------- | --------------------------------- |
-| `device_type`              | Identifies the device as a mower  |
-| `availability`             | Whether the device can be reached |
-| `battery`                  | Battery charge level/state        |
-| `charge`                   | Return to / use charging station  |
-| `clean`                    | Mowing control                    |
-| `custom`                   | Low-level custom command access   |
-| `error`                    | Mower errors                      |
-| `life_span`                | Blade/accessory maintenance life  |
-| `network`                  | Device network information        |
-| `play_sound`               | Trigger mower sound               |
-| `settings`                 | Device and mower settings         |
-| `state`                    | Current operational state         |
-| `stats`                    | Mowing/statistical information    |
+The new area-name work belongs under:
 
-Capabilities such as `water` and vacuum station functions are not relevant to the reviewed mower profiles.
+```text
+clean.areas
+```
 
-## Hardware profiles
+rather than:
 
-A hardware profile connects the generic capability system to a specific mower model.
+```text
+map
+```
 
-For example, a typical GOAT profile contains structures conceptually similar to:
+---
+
+# Hardware profiles
+
+The hardware profile is the authoritative client-side place for determining which capability is enabled for a model.
+
+A command existing elsewhere in the source tree does not mean every device can use it.
+
+For example, after PR #1774 the researched O1200 development profile conceptually has:
 
 ```python
 Capabilities(
     device_type=DeviceType.MOWER,
-    battery=CapabilityEvent(
-        BatteryEvent,
-        [GetBattery()],
-    ),
-    charge=CapabilityExecute(Charge),
     clean=CapabilityClean(
         action=CapabilityCleanAction(
             command=CleanV2,
-            area=CleanAreaV2,
+        ),
+        areas=CapabilityEvent(
+            RoomsEvent,
+            [GetAreaSet()],
         ),
     ),
+    map=None,
     ...
 )
 ```
 
-This is the primary place to determine whether a capability is currently enabled for a particular model.
-
-The presence of a command implementation elsewhere in the source tree does not automatically mean that all devices expose that command.
-
-## Event refresh mapping
-
-The capability architecture automatically builds a mapping between events and their GET commands.
-
-During `Capabilities` initialisation, `_get_events()` recursively examines capability dataclasses.
-
-When it finds a `CapabilityEvent`, it records:
+This describes three separate facts:
 
 ```text
-Event type → GET command(s)
+general mowing action: yes
+area-name metadata: yes
+full map capability: no
 ```
 
-The resulting mapping is stored internally as `_events`.
+---
 
-The method:
+# Mowing actions
 
-```python
-get_refresh_commands(event)
-```
-
-can then return the commands required to refresh a particular event.
-
-Conceptually:
-
-```text
-BatteryEvent
-    ↓
-GetBattery()
-
-VolumeEvent
-    ↓
-GetVolume()
-
-TrueDetectEvent
-    ↓
-GetTrueDetect()
-```
-
-This is useful for integrations because they can request updated state based on an event type without hard-coding all of the underlying protocol commands themselves.
-
-## Mowing actions
-
-The common action enum currently contains four actions:
+The shared action enum contains:
 
 ```text
 START
@@ -502,7 +1029,7 @@ RESUME
 STOP
 ```
 
-Their JSON values are:
+with JSON values:
 
 ```text
 start
@@ -511,51 +1038,41 @@ resume
 stop
 ```
 
-For GOAT mowers using `CleanV2`, the protocol command name is:
+GOAT profiles use:
 
 ```text
-clean_V2
+CleanV2
 ```
 
-For a normal start operation, the command includes an automatic mode.
+for general mowing control.
 
-The common `CleanV2` implementation also prepares appropriate content for pause and stop operations.
+---
 
-## Start versus resume handling
+# Start versus resume handling
 
-The shared command implementation includes state-aware handling for start and resume.
+The shared command implementation contains state-aware handling.
 
-If the client requests:
+Conceptually:
 
 ```text
-RESUME
+START while PAUSED
+    → RESUME
 ```
 
-while the device is not currently paused, the command can be converted to:
+and:
 
 ```text
-START
+RESUME while not PAUSED
+    → START
 ```
 
-Likewise, if:
+This lets higher-level integrations use a simpler start/resume interface.
 
-```text
-START
-```
+---
 
-is requested while the current state is paused, it can be converted to:
+# Operational state
 
-```text
-RESUME
-```
-
-This means that the higher-level operation is partly protected against mismatches between the requested action and the latest known `StateEvent`.
-
-This behaviour exists in the shared command layer and is not unique to mowers.
-
-## Operational state
-
-The shared `State` model currently contains:
+Common state values include:
 
 ```text
 IDLE
@@ -566,27 +1083,37 @@ ERROR
 PAUSED
 ```
 
-For mower use, `CLEANING` represents an active mowing operation.
+For GOAT user interfaces:
 
-The terminology again reflects the shared history of the library rather than mower-specific user-facing names.
+```text
+CLEANING
+```
 
-## `GetCleanInfoV2`
+should normally be displayed as:
 
-The reviewed GOAT profiles use:
+```text
+MOWING
+```
+
+---
+
+# `GetCleanInfoV2`
+
+Reviewed GOAT profiles use:
 
 ```text
 GetCleanInfoV2
 ```
 
-as part of current-state retrieval.
-
-Its protocol command name is:
+wire:
 
 ```text
 getCleanInfo_V2
 ```
 
-The shared parser can map returned information into states such as:
+to retrieve current operational state.
+
+Possible normalised states include:
 
 ```text
 CLEANING
@@ -596,161 +1123,258 @@ IDLE
 ERROR
 ```
 
-For example, a reported motion state of:
+---
+
+# Area operations versus area metadata versus area settings
+
+GOAT now has three clearly distinct capability concepts.
+
+## 1. Area mowing action
 
 ```text
-working
+CapabilityCleanAction.area
 ```
-
-can become:
-
-```text
-State.CLEANING
-```
-
-and:
-
-```text
-pause
-```
-
-can become:
-
-```text
-State.PAUSED
-```
-
-The mower state is therefore normalised into the same common state model used by the rest of the library.
-
-## Area operations
-
-`CleanAreaV2` extends `CleanV2` with area-specific content.
-
-The common implementation accepts:
-
-```text
-mode
-area
-cleanings
-```
-
-and produces protocol content containing a mowing/cleaning type and value.
-
-The generic `CleanMode` enum currently contains:
-
-```text
-AUTO
-SPOT_AREA
-CUSTOM_AREA
-FREE_CLEAN
-```
-
-Not all names necessarily correspond directly to terminology used by the ECOVACS GOAT app.
-
-As with other shared abstractions, mower-specific protocol behaviour should be documented from observed device behaviour rather than inferred only from generic enum names.
-
-## Capability support versus protocol support
-
-A distinction should always be maintained between three layers:
-
-```text
-Protocol knows about feature
-          │
-          ▼
-deebot_client implements command/event
-          │
-          ▼
-hardware profile exposes capability
-```
-
-These are not equivalent.
-
-For example, it is possible for:
-
-1. ECOVACS protocol traffic to reveal a mower setting,
-2. a command and event implementation to be added to `deebot_client`,
-3. but the setting not yet to be enabled in a particular hardware profile.
-
-Likewise, a feature may exist in a development branch without yet being available in upstream `dev`.
-
-The documentation in this repository therefore records both implementation state and testing evidence.
-
-## Capability documentation convention
-
-For newly documented mower features, use the following fields where practical:
-
-| Field                   | Description                                                    |
-| ----------------------- | -------------------------------------------------------------- |
-| **Feature**             | Human-readable mower feature                                   |
-| **Capability**          | `deebot_client` capability field                               |
-| **Event**               | Normalised event generated by the client                       |
-| **Get command**         | Command used to retrieve state                                 |
-| **Set/execute command** | Command used to change or perform the feature                  |
-| **Protocol name**       | ECOVACS command/message name where known                       |
-| **Models**              | Hardware profiles exposing the capability                      |
-| **Evidence**            | Upstream, fork, device-tested, protocol-observed or unverified |
 
 Example:
 
 ```text
-Feature: Border switch
-Capability: settings.border_switch
-Event: BorderSwitchEvent
-Get command: GetBorderSwitch
-Set command: SetBorderSwitch
-Evidence: Upstream implemented
+CleanAreaV2
 ```
 
-This convention will make it easier to compare app functionality, protocol observations, Python implementation and Home Assistant exposure.
-
-## Why this architecture matters for GOAT development
-
-The capability system provides a useful separation between:
-
-* raw ECOVACS protocol behaviour
-* Python command implementations
-* parsed state events
-* device-specific support
-* integration-facing functionality
-
-When adding a newly discovered GOAT feature, the normal development path is therefore approximately:
+Purpose:
 
 ```text
-Observe protocol
+start mowing selected target(s)
+```
+
+## 2. Area metadata
+
+```text
+CapabilityClean.areas
+```
+
+Example:
+
+```text
+CapabilityEvent(RoomsEvent, [GetAreaSet()])
+```
+
+Purpose:
+
+```text
+retrieve area IDs and display names
+```
+
+## 3. Area parameters
+
+```text
+settings.area_parameter
+```
+
+Example:
+
+```text
+AreaParameterEvent
+GetAreaParameter
+SetAreaParameter
+```
+
+Purpose:
+
+```text
+read/write zone-specific mowing settings
+```
+
+Conceptually:
+
+```text
+Area/zone support
+      │
+      ├── start it
+      ├── name/identify it
+      └── configure it
+```
+
+These should remain separate capabilities even when they share the same logical lawn zone.
+
+---
+
+# Current O1200 zone-capability picture
+
+Development evidence currently gives:
+
+```text
+Area identity/name
+    ✓ getAreaSet / RoomsEvent
+
+Area-specific settings
+    ✓ areaID / AreaParameterEvent
+
+Selected-zone start
+    ? client capability still unresolved
+
+Full map
+    ? separate work; not implied by area names
+```
+
+This is substantially more precise than treating "zone support" as one binary feature.
+
+---
+
+# Capability support versus protocol support
+
+Maintain three separate questions:
+
+```text
+Does the physical/protocol feature exist?
+            │
+            ▼
+Does deebot_client implement it?
+            │
+            ▼
+Does this hardware profile expose it?
+```
+
+A fourth consumer layer may then ask:
+
+```text
+Does Home Assistant expose it?
+```
+
+These stages can have different statuses.
+
+---
+
+# Capability documentation convention
+
+For newly documented mower features, record:
+
+| Field | Description |
+| --- | --- |
+| Feature | Human-readable mower feature |
+| Capability | `deebot_client` capability path |
+| Event | Normalised event |
+| GET command | Refresh command |
+| SET/execute command | Writable/action command |
+| Protocol name | Wire command/message |
+| Models | Evidence-backed hardware profiles |
+| Branch/status | Upstream or development |
+| Tests | Automated coverage |
+| Device evidence | App/protocol/physical validation |
+| Unknowns | Remaining semantic gaps |
+
+Example for area names:
+
+```text
+Feature: O1200 area names
+Capability: clean.areas
+Event: RoomsEvent
+GET command: GetAreaSet
+Protocol: getAreaSet
+Model: 2i0fns
+Status: PR #1774 / development
+Evidence: protocol + live device + tests
+Map capability: not implied
+```
+
+---
+
+# Why this architecture matters
+
+A capability-based design prevents integrations from becoming a collection of model-name exceptions.
+
+Preferred:
+
+```text
+if clean.areas exists:
+    use RoomsEvent
+```
+
+rather than:
+
+```text
+if model is O1200:
+    parse compressed subsets
+```
+
+Protocol reverse-engineering stays in `deebot_client`.
+
+Consumers receive stable normalised semantics.
+
+---
+
+# Development flow
+
+A typical GOAT feature should move through:
+
+```text
+Observe app/device
       │
       ▼
-Understand payload
+Capture protocol
       │
       ▼
-Implement message/event
+Identify payload
       │
       ▼
-Implement Get/Set command
+Implement command/message
       │
       ▼
-Add capability abstraction if needed
+Normalise event
       │
       ▼
-Enable capability in hardware profile
+Expose capability
       │
       ▼
 Add tests
       │
       ▼
-Expose through consuming integration
+Verify live device
+      │
+      ▼
+Expose in integration
 ```
 
-Not every feature requires a new top-level capability type. Existing abstractions such as `CapabilitySetEnable`, `CapabilitySet`, `CapabilityNumber` or `CapabilityExecute` should be reused when they accurately represent the mower feature.
+PR #1774 is a good example:
 
-## Related documentation
+```text
+captured getAreaSet
+      │
+      ▼
+decoded compressed subsets
+      │
+      ▼
+reused Room / RoomsEvent
+      │
+      ▼
+added clean.areas
+      │
+      ▼
+enabled for 2i0fns
+      │
+      ▼
+tested
+      │
+      ▼
+live end-to-end verified
+      │
+      ▼
+HA development consumes RoomsEvent
+```
 
-See also:
+---
 
-* [Supported models](supported-models.md)
-* Mowing control *(planned)*
-* Progress and statistics *(planned)*
-* Mower settings *(planned)*
-* Rain and protection *(planned)*
-* Obstacle and AI features *(planned)*
-* Protocol reference *(planned)*
-* Home Assistant integration *(planned)*
+# Related documentation
+
+- [Overview](overview.md)
+- [Supported models](supported-models.md)
+- [Mowing control](mowing-control.md)
+- [Zones and areas](zones-and-areas.md)
+- [O1200 area names](area-names.md)
+- [O1200 area parameters](area-parameters.md)
+- [Progress and statistics](progress-and-statistics.md)
+- [Settings](settings.md)
+- [Protocol reference](protocol-reference.md)
+- [Home Assistant](home-assistant.md)
+- [Testing status](testing-status.md)
+- [Known limitations](known-limitations.md)
