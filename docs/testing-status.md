@@ -96,6 +96,7 @@ Likewise, a Home Assistant test can prove that an event is exposed correctly as 
 
 | Feature | Upstream | Fork | Python tested | Protocol observed | Device/app tested | HA status | Current confidence |
 | --- | :---: | :---: | :---: | :---: | :---: | --- | --- |
+| Device-specific command routing | — | ✓ PR #1772 | ✓ | Architecture only | — | N/A | Implemented/tested in open PR; integration caveats remain |
 | Device identified as mower | ✓ | — | ✓ | — | ✓ | Implemented | High |
 | Battery | ✓ | — | ✓ | ✓ | ✓ | Implemented | High |
 | Return to dock | ✓ | — | ✓ | ✓ | ✓ | Implemented/tested | High |
@@ -141,6 +142,71 @@ Likewise, a Home Assistant test can prove that an event is exposed correctly as 
 | Mowing speed | — | — | — | — | requires mapping | — | Not mapped |
 | Scheduling | Partial generic ecosystem only | — | — | GOAT mapping incomplete | App feature area | — | Not mapped for GOAT |
 | GOAT map semantics | Partial generic client map support | separate research | — | incomplete | app/device mapping exists | separate work | Incomplete |
+
+---
+
+
+# Device-specific command routing — PR #1772
+
+PR #1772 adds a per-device command table derived from the capability tree.
+
+Tested behaviours include:
+
+```text
+same wire name → different command classes on different devices
+legacy message lookup uses device command first
+P2P lookup uses device command first
+global P2P fallback remains available when device has no command
+explicit non-P2P device command blocks an unrelated global P2P fallback
+q request uses receiver device
+p response uses sender device
+```
+
+Status:
+
+**Fork implemented / Python tested / architecture-only**
+
+This PR does not require physical mower evidence by itself because it changes client routing rather than ECOVACS mower behaviour.
+
+## CI caveats
+
+At the reviewed PR head, Codecov reported patch coverage of approximately:
+
+```text
+87.8%
+```
+
+with several changed lines/branches not fully covered.
+
+CodSpeed reported performance regressions but also explicitly warned that different runtime environments were being compared.
+
+Therefore the performance result should be rechecked under comparable conditions before being treated as confirmed.
+
+## Cross-PR volume integration
+
+PR #1778 uses two O1200 logical volume controls with the same wire name:
+
+```text
+setVolume
+```
+
+System volume is configured through a lambda-wrapped `SetVolume`, while lifted-alarm volume uses direct `SetFallVolume`.
+
+Because PR #1772 discovers direct command classes but not arbitrary lambdas, the combined branches need an explicit test for:
+
+```text
+type=sys
+type=fall
+P2P q/p routing
+VolumeEvent
+FallVolumeEvent
+```
+
+Current status:
+
+**Integration interaction requires verification**
+
+This is not evidence of a protocol error; it is a software-routing review finding.
 
 ---
 
@@ -1165,6 +1231,7 @@ Recommended priorities:
 # Related documentation
 
 - [Overview](overview.md)
+- [Device-specific command routing](command-routing.md)
 - [Supported models](supported-models.md)
 - [Mowing control](mowing-control.md)
 - [Zones and areas](zones-and-areas.md)

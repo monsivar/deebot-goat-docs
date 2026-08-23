@@ -4,6 +4,7 @@ This page is a compact developer reference for ECOVACS GOAT mower commands, mess
 
 Last reviewed against:
 
+- [`PR #1772`](https://github.com/DeebotUniverse/client.py/pull/1772) — device-specific command routing
 - upstream `DeebotUniverse/client.py` `dev`
 - mower development branches
 - [`PR #1767`](https://github.com/DeebotUniverse/client.py/pull/1767)
@@ -41,6 +42,69 @@ It focuses on elements currently relevant to GOAT mower support and protocol res
 | **EXECUTE** | Request an action |
 | **PUSH** | Device/cloud reports state |
 | **REPORT** | Job/statistical report |
+
+---
+
+
+# Command-name routing
+
+Protocol command names are not necessarily globally unique in semantics.
+
+PR #1772 introduces device-specific command resolution so the same wire name can map to different Python command classes for different hardware profiles.
+
+Development resolution concept:
+
+```text
+wire command name
+       │
+       ▼
+device capabilities
+       │
+   ┌───┴────┐
+   │        │
+ found   not found
+   │        │
+   ▼        ▼
+device   global fallback
+command
+```
+
+This is a client-routing concern rather than a new ECOVACS protocol field.
+
+## Legacy messages
+
+Legacy JSON message lookup prefers the command configured by the target device's capabilities and only then uses the global `COMMANDS` registry.
+
+## MQTT P2P
+
+Device-specific P2P lookup follows:
+
+```text
+q request  → receiver device
+p response → sender device
+```
+
+An explicitly configured non-P2P command blocks substitution of a different global P2P implementation with the same name.
+
+## Same-name command limitation inside one device
+
+The per-device table contains one command class per command `NAME`.
+
+When several directly discoverable commands in one device share a name, first-wins behaviour applies.
+
+Commands hidden behind lambdas are not directly discovered.
+
+This is relevant when combining PR #1772 with O1200 volume work in PR #1778, where multiple volume semantics share:
+
+```text
+setVolume
+```
+
+The combined routing should be explicitly integration-tested.
+
+Detailed architecture:
+
+[Device-specific command routing](command-routing.md)
 
 ---
 
@@ -1601,6 +1665,7 @@ Prefer minimal payload examples.
 # Related documentation
 
 - [Overview](overview.md)
+- [Device-specific command routing](command-routing.md)
 - [Supported models](supported-models.md)
 - [Capabilities](capabilities.md)
 - [Mowing control](mowing-control.md)

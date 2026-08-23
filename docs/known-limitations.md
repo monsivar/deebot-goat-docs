@@ -44,6 +44,7 @@ Major known limitations currently include:
 - incomplete O1200 selected-zone capability
 - mower-specific settings still residing only in development branches
 - incomplete cross-model verification
+- device-specific same-name command routing remains an open PR rather than reviewed upstream architecture
 - O1200 cutting-height protocol mapped, but raw `mowHeightLevel` → physical height mapping incomplete
 - O1200 `cutMode` mapped as a raw zone parameter, but its app/user-facing enum semantics remain incomplete
 - O1200 `obstacleHeight` mapped as a raw zone parameter, but its exact physical meaning/unit remains incomplete
@@ -1094,6 +1095,123 @@ Status:
 
 ---
 
+
+# Device-specific command routing is not upstream yet
+
+The reviewed upstream architecture still relies heavily on global command-name registries.
+
+PR #1772 proposes a per-device command lookup derived from:
+
+```text
+Capabilities
+```
+
+so different device families can select different Python implementations with the same ECOVACS command name.
+
+This is an important prerequisite for mower command work such as a mower-specific:
+
+```text
+clean
+```
+
+implementation.
+
+Status:
+
+```text
+PR #1772 open
+not merged into reviewed upstream baseline
+```
+
+Until the architecture lands, same-name device-family command implementations remain harder to represent safely.
+
+---
+
+# PR #1772 does not solve every same-name case
+
+The proposed mapping stores one command class for each:
+
+```text
+Command.NAME
+```
+
+inside one device.
+
+It uses first-wins behaviour for directly discoverable duplicate names.
+
+This means it primarily solves:
+
+```text
+same name across different devices
+```
+
+not arbitrary:
+
+```text
+same name + multiple semantic implementations inside one device
+```
+
+Commands wrapped in lambdas are also not directly discoverable by the capability scan.
+
+These are software architecture constraints rather than ECOVACS protocol limitations.
+
+---
+
+# `setVolume` cross-PR integration requires explicit verification
+
+PR #1778 maps O1200:
+
+```text
+system volume
+lifted-alarm volume
+```
+
+through the same ECOVACS wire command:
+
+```text
+setVolume
+```
+
+The system-volume setter is wrapped in a lambda to provide:
+
+```text
+type=sys
+total=10
+```
+
+while:
+
+```text
+SetFallVolume
+```
+
+is directly configured.
+
+PR #1772's device command discovery does not directly inspect arbitrary lambda targets and retains one direct command class per name.
+
+Therefore the combination:
+
+```text
+#1772 + #1778
+```
+
+should have an explicit integration test before being considered fully verified.
+
+The test should cover both:
+
+```text
+type=sys
+type=fall
+```
+
+and resulting P2P/event behaviour.
+
+Status:
+
+**Open integration verification item**
+
+---
+
 # Firmware and cloud compatibility can change
 
 ECOVACS can change:
@@ -1343,6 +1461,7 @@ This keeps implementation evidence separate from assumption.
 # Related documentation
 
 - [Overview](overview.md)
+- [Device-specific command routing](command-routing.md)
 - [Supported models](supported-models.md)
 - [Capabilities](capabilities.md)
 - [Mowing control](mowing-control.md)

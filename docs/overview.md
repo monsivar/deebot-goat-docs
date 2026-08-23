@@ -90,6 +90,7 @@ Commands
 Messages
 Events
 Capabilities
+Device-specific command routing
 Hardware profiles
 ```
 
@@ -159,6 +160,50 @@ GOAT devices are identified as:
 ```python
 DeviceType.MOWER
 ```
+
+---
+
+
+# Device-specific command routing
+
+An important architecture limitation appears when ECOVACS reuses the same wire command name across device families but the devices require different Python implementations.
+
+PR #1772 introduces:
+
+```text
+Capabilities.get_command(name)
+```
+
+and a per-device command lookup derived from the hardware capability tree.
+
+Conceptually:
+
+```text
+wire name
+   │
+   ▼
+device capabilities
+   │
+   ▼
+device-specific command class
+   │
+   └── fallback to global registry when appropriate
+```
+
+This is relevant to GOAT mower work such as same-name `clean` implementations without making the command name globally unique.
+
+The PR also makes MQTT P2P routing device-aware:
+
+```text
+request (q)  → receiver device
+response (p) → sender device
+```
+
+PR #1772 is still development work and does not itself change which mowing command a GOAT hardware profile uses.
+
+See:
+
+[Device-specific command routing](command-routing.md)
 
 ---
 
@@ -934,6 +979,10 @@ See:
 ## Capability architecture
 
 [Capabilities](capabilities.md)
+
+## Command routing
+
+[Device-specific command routing](command-routing.md)
 
 ## Basic mowing
 

@@ -5,6 +5,7 @@ This page explains how ECOVACS GOAT mower functionality is represented by the ca
 Last reviewed:
 
 - upstream `DeebotUniverse/client.py` `dev`
+- device-specific command-routing development in [`PR #1772`](https://github.com/DeebotUniverse/client.py/pull/1772)
 - O1200 area-name development in [`PR #1774`](https://github.com/DeebotUniverse/client.py/pull/1774)
 
 Date: **2026-08-24**
@@ -720,6 +721,141 @@ This is an intentional architecture decision.
 
 ---
 
+
+# Device-specific command lookup
+
+PR #1772 extends the capability architecture with a second derived lookup in addition to event refresh commands.
+
+Existing capability derivation:
+
+```text
+Event type → GET command(s)
+```
+
+Development addition:
+
+```text
+wire command NAME → command class
+```
+
+Conceptually:
+
+```text
+Capabilities
+   │
+   ├── _events
+   │     └── Event → refresh commands
+   │
+   └── _commands
+         └── NAME → configured command implementation
+```
+
+The new helper is:
+
+```python
+Capabilities.get_command(name)
+```
+
+This allows two devices to select different Python command classes even when ECOVACS uses the same protocol command name.
+
+Example:
+
+```text
+Device A capabilities
+    └── "clean" → CommandA
+
+Device B capabilities
+    └── "clean" → CommandB
+```
+
+This is particularly relevant to ongoing GOAT mower `clean` work, where a mower-specific implementation may need to coexist with another device-family implementation using the same wire name.
+
+## Command discovery
+
+The development implementation recursively scans capability dataclasses for directly configured:
+
+```text
+Command instances
+Command classes
+commands inside lists/tuples
+nested capability dataclasses
+```
+
+Arbitrary callable wrappers such as:
+
+```python
+lambda value: SetCommand(value, ...)
+```
+
+are not directly discoverable as command classes.
+
+Those cases continue to depend on legacy/global fallback unless another directly discoverable same-name command is found.
+
+## Duplicate names
+
+The per-device mapping stores one command class per:
+
+```text
+NAME
+```
+
+and preserves the first directly discovered command when duplicates exist in the same capability tree.
+
+This means the architecture primarily solves:
+
+```text
+same wire name across different devices/families
+```
+
+rather than full payload-aware multi-dispatch for several same-name commands inside one device.
+
+## Legacy message lookup
+
+PR #1772 changes legacy JSON message lookup to prefer:
+
+```text
+device.capabilities.get_command(name)
+```
+
+before falling back to the global:
+
+```text
+COMMANDS
+```
+
+registry.
+
+## MQTT P2P lookup
+
+The MQTT P2P path similarly prefers the subscribed device's configured command.
+
+Routing identity is:
+
+```text
+q request  → receiver device
+p response → sender device
+```
+
+If the device explicitly configures a same-name command that is not P2P-capable, the code does not silently substitute another global P2P implementation.
+
+## GOAT integration caveat
+
+PR #1778 configures two O1200 volume semantics under the same wire name:
+
+```text
+setVolume
+```
+
+with system volume wrapped in a lambda and `SetFallVolume` directly configured.
+
+Because PR #1772 discovers direct command classes but not arbitrary lambdas, the combined branches require an explicit O1200 `setVolume` routing test before the interaction should be considered fully verified.
+
+See:
+
+[Device-specific command routing](command-routing.md)
+
+---
+
 # Event refresh mapping
 
 `Capabilities` recursively builds a mapping from event types to their refresh commands.
@@ -1367,6 +1503,7 @@ HA development consumes RoomsEvent
 # Related documentation
 
 - [Overview](overview.md)
+- [Device-specific command routing](command-routing.md)
 - [Supported models](supported-models.md)
 - [Mowing control](mowing-control.md)
 - [Zones and areas](zones-and-areas.md)
