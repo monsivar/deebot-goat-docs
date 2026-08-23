@@ -118,6 +118,7 @@ Home Assistant
 | Architecture and reading guide | [Overview](docs/overview.md) |
 | Supported GOAT models | [Supported models](docs/supported-models.md) |
 | `deebot-client` capability architecture | [Capabilities](docs/capabilities.md) |
+| Device-specific command lookup and MQTT/P2P routing | [Command routing](docs/command-routing.md) |
 | Start, pause, resume, stop and dock | [Mowing control](docs/mowing-control.md) |
 | Lawn zones and area mowing | [Zones and areas](docs/zones-and-areas.md) |
 | Job progress and mowing statistics | [Progress and statistics](docs/progress-and-statistics.md) |
@@ -261,6 +262,7 @@ The strongest current implementation and test coverage includes:
 - total mowing statistics
 - maintenance/lifespan information
 - common mower settings
+- device-specific command-routing architecture under development in PR #1772
 - O1200 zone-specific area-parameter protocol (`mowHeightLevel`, `cutMode`, `obstacleHeight`, `angle`)
 - O1200 global rain, AI, animal-protection and mower-volume protocol
 - O1200 area-name/ID mapping through `getAreaSet` / `RoomsEvent`
@@ -587,6 +589,7 @@ deebot-goat-docs/
 │   ├── overview.md
 │   ├── supported-models.md
 │   ├── capabilities.md
+│   ├── command-routing.md
 │   ├── mowing-control.md
 │   ├── zones-and-areas.md
 │   ├── progress-and-statistics.md
