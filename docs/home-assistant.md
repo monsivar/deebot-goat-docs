@@ -1,14 +1,15 @@
 # Home Assistant integration
 
-This page documents how ECOVACS GOAT mower functionality maps to Home Assistant and how newly researched mower capabilities could be exposed in the integration.
+This page documents how ECOVACS GOAT mower functionality maps to Home Assistant and how mower-specific `deebot_client` capabilities can be represented safely.
 
 Last reviewed against:
 
-* `DeebotUniverse/client.py`
-* Home Assistant development branch `feature/ecovacs-mower-progress`
-* mower development branches documented in this repository
+- `DeebotUniverse/client.py`
+- Home Assistant branch `feature/ecovacs-mower-progress`
+- mower development branches
+- O1200 area-parameter work in PR #1767/#1768
 
-Date: **2026-08-23**
+Date: **2026-08-24**
 
 ## Architecture
 
@@ -23,20 +24,19 @@ ECOVACS protocol
       ▼
 deebot_client
       │
-      ├── capabilities
       ├── commands
-      └── events
+      ├── messages
+      ├── events
+      └── capabilities
              │
              ▼
 Home Assistant Ecovacs integration
              │
              ▼
-Home Assistant entities
+Home Assistant entities/actions
 ```
 
-Home Assistant should normally consume normalised `deebot_client` capabilities and events rather than interpreting ECOVACS protocol payloads directly.
-
-This separation is important because protocol handling belongs in `deebot_client`, while Home Assistant should focus on representing functionality through appropriate entity platforms.
+Home Assistant should consume normalised `deebot_client` capabilities rather than parse raw ECOVACS payloads directly.
 
 ---
 
@@ -48,13 +48,11 @@ GOAT devices are identified by:
 DeviceType.MOWER
 ```
 
-and exposed in Home Assistant using the:
+and represented as:
 
 ```text
 lawn_mower
 ```
-
-platform.
 
 The development implementation creates:
 
@@ -62,19 +60,13 @@ The development implementation creates:
 EcovacsMower
 ```
 
-for devices where:
-
-```python
-device.capabilities.device_type is DeviceType.MOWER
-```
-
-This prevents mower devices from being represented as vacuum entities.
+for mower-capable devices.
 
 ---
 
 # Current `lawn_mower` features
 
-The current mower entity exposes:
+The reviewed development implementation exposes:
 
 ```text
 START_MOWING
@@ -82,76 +74,36 @@ PAUSE
 DOCK
 ```
 
-through:
+Underlying client operations:
 
-```text
-LawnMowerEntityFeature.START_MOWING
-LawnMowerEntityFeature.PAUSE
-LawnMowerEntityFeature.DOCK
-```
+| Home Assistant action | `deebot_client` |
+| --- | --- |
+| Start mowing | `CleanV2(CleanAction.START)` |
+| Pause | `CleanV2(CleanAction.PAUSE)` |
+| Dock | `Charge()` |
 
-The underlying commands are:
-
-| Home Assistant action | `deebot_client`              |
-| --------------------- | ---------------------------- |
-| Start mowing          | `CleanV2(CleanAction.START)` |
-| Pause                 | `CleanV2(CleanAction.PAUSE)` |
-| Dock                  | `Charge()`                   |
-
-This is already covered by Home Assistant automated tests.
+These are covered by automated Home Assistant tests.
 
 ---
 
-# Mower state mapping
+# Mower activity mapping
 
-The current integration maps shared `deebot_client` states into mower-specific Home Assistant activities.
+| `deebot_client` | Home Assistant |
+| --- | --- |
+| `State.CLEANING` | `MOWING` |
+| `State.RETURNING` | `RETURNING` |
+| `State.DOCKED` | `DOCKED` |
+| `State.ERROR` | `ERROR` |
+| `State.PAUSED` | `PAUSED` |
+| `State.IDLE` | `PAUSED` |
 
-| `deebot_client` state | Home Assistant mower activity |
-| --------------------- | ----------------------------- |
-| `State.CLEANING`      | `MOWING`                      |
-| `State.RETURNING`     | `RETURNING`                   |
-| `State.DOCKED`        | `DOCKED`                      |
-| `State.ERROR`         | `ERROR`                       |
-| `State.PAUSED`        | `PAUSED`                      |
-| `State.IDLE`          | `PAUSED`                      |
-
-The important translation is:
-
-```text
-CLEANING → MOWING
-```
-
-This prevents vacuum-oriented terminology from appearing in the mower entity.
-
----
-
-# `IDLE` currently maps to `PAUSED`
-
-The shared `deebot_client` model contains:
-
-```text
-State.IDLE
-```
-
-while the Home Assistant lawn-mower activity model used by the implementation does not provide a directly equivalent idle mapping in this code.
-
-The current implementation therefore maps:
-
-```text
-State.IDLE
-    ↓
-LawnMowerActivity.PAUSED
-```
-
-This is an implementation compromise and should not be interpreted as proof that the mower's physical job is always paused when `deebot_client` reports `IDLE`.
-
-If the Home Assistant mower model later provides a better representation, this mapping could be revisited.
+`IDLE → PAUSED` is an integration compromise, not a physical semantic claim.
 
 ---
 
 # Stop mowing
 
-`deebot_client` supports:
+The client supports:
 
 ```text
 CleanAction.STOP
@@ -159,85 +111,51 @@ CleanAction.STOP
 
 and physical GOAT stop behaviour has been observed.
 
-However, the current Home Assistant mower entity exposes only:
-
-```text
-START_MOWING
-PAUSE
-DOCK
-```
-
-There is no corresponding stop action in the current `EcovacsMower` implementation.
+The reviewed Home Assistant mower entity does not expose stop as a current lawn-mower feature.
 
 Therefore:
 
 ```text
-Protocol/client
-    │
-    └── STOP supported
+client/protocol STOP
+      │
+      └── supported
 
-Home Assistant mower entity
-    │
-    └── STOP not currently exposed
+Home Assistant mower
+      │
+      └── not currently exposed
 ```
-
-Status:
-
-**Client supported / Home Assistant integration gap**
-
-This should not be confused with docking.
-
-```text
-STOP
-```
-
-and:
-
-```text
-DOCK
-```
-
-are separate ECOVACS operations.
 
 ---
 
 # Start versus resume
 
-The Home Assistant entity currently calls:
+Home Assistant uses:
 
 ```text
 CleanAction.START
 ```
 
-for:
+The shared client contains state-aware START/RESUME handling.
+
+When current state is:
 
 ```text
-START_MOWING
+PAUSED
 ```
 
-It does not need a separate Home Assistant resume action because the shared `deebot_client` command implementation contains state-aware START/RESUME handling.
-
-When the mower is paused:
+a START request can be translated into:
 
 ```text
-START requested
-      │
-      ▼
-deebot_client sees PAUSED
-      │
-      ▼
-RESUME is sent
+RESUME
 ```
 
-This provides a natural mapping from Home Assistant's single start action to both starting and resuming GOAT mowing.
+This avoids needing a separate Home Assistant resume feature.
 
 ---
 
-# Current mower sensors
+# Current mower statistics
 
-The Ecovacs sensor platform already adapts several generic statistics names for mower devices.
-
-Examples include:
+Mower-oriented labels include:
 
 ```text
 Area mowed
@@ -247,318 +165,89 @@ Total mowing duration
 Total mowings
 ```
 
-instead of vacuum-oriented labels such as:
+rather than vacuum-oriented terminology.
 
-```text
-Area cleaned
-Cleaning duration
-Total cleanings
-```
-
-This is the preferred design pattern:
-
-```text
-shared client event
-       │
-       ▼
-device-type-specific Home Assistant wording
-```
-
-rather than changing the generic client event solely for UI terminology.
+This is the preferred UI pattern.
 
 ---
 
-# Battery
+# O1200 mowing progress
 
-Battery is exposed as a normal Home Assistant battery sensor.
-
-Source:
+Development pair:
 
 ```text
-BatteryEvent
-```
-
-Entity type:
-
-```text
-sensor
-```
-
-Device class:
-
-```text
-battery
-```
-
-Unit:
-
-```text
-%
-```
-
-This is a diagnostic/status entity rather than a mower-control setting.
-
----
-
-# Maintenance/lifespan sensors
-
-GOAT maintenance values are exposed through Home Assistant sensors based on:
-
-```text
-LifeSpanEvent
-```
-
-Examples include:
-
-```text
-Blade lifespan
-Lens brush lifespan
-```
-
-For models supporting additional types, potential values include:
-
-```text
-Weed rope lifespan
-Trimmer brush lifespan
-```
-
-The hardware profile determines which lifespan entities are created.
-
-These are diagnostic sensors.
-
----
-
-# Network and error sensors
-
-The generic Ecovacs integration also exposes diagnostic information such as:
-
-```text
-IP address
-Wi-Fi RSSI
-Wi-Fi SSID
-Error
-```
-
-These are useful for diagnostics but are not mower-specific controls.
-
-Some diagnostic entities are disabled by default.
-
----
-
-# Mowing job progress
-
-The development pair:
-
-```text
-client.py:
+client:
 feature/mower-stats-progress
 
-Home Assistant core:
+Home Assistant:
 feature/ecovacs-mower-progress
 ```
-
-introduces explicit support for mower job progress.
-
-The client capability adds:
-
-```python
-CapabilityStats(
-    ...
-    mowing_job_progress=True,
-)
-```
-
-for the researched O1200 profile.
-
-Home Assistant checks this flag before exposing the mower-specific progress interpretation.
-
-This is preferable to assuming that every device sending `StatsEvent` uses the fields in the same way.
-
----
-
-# Progress capability flag
 
 The client adds:
 
 ```text
-stats.mowing_job_progress
+CapabilityStats.mowing_job_progress
 ```
 
-with default:
+and enables it for the researched O1200 profile.
 
-```text
-False
-```
-
-The O1200 development profile sets:
-
-```text
-mowing_job_progress=True
-```
-
-Conceptually:
-
-```text
-StatsEvent available
-        │
-        ▼
-Does model declare
-mowing_job_progress?
-        │
-     ┌──┴──┐
-     │     │
-    no    yes
-     │     │
-     ▼     ▼
-generic   mower-progress
-stats     interpretation
-```
-
-This allows model-specific semantics without changing statistics behaviour for unrelated ECOVACS devices.
+Home Assistant uses the flag before applying mower-specific progress semantics.
 
 ---
 
-# Area mowed during current job
+# Current area mowed
 
-When mower job progress is supported, Home Assistant uses:
+For the progress path:
 
 ```text
 StatsEvent.mowed_area
 ```
 
-for the current:
+becomes:
 
 ```text
 Area mowed
 ```
 
-sensor rather than:
+The current HA implementation uses square centimetres natively for this path and suggests square metres for display.
+
+A test verifies:
 
 ```text
-StatsEvent.area
+28699 cm² → 2.8699 m²
 ```
-
-The protocol/client representation is:
-
-```text
-mowedArea
-      ↓
-mowed_area
-      ↓
-Home Assistant area sensor
-```
-
-The current O1200 test uses:
-
-```text
-mowed_area = 28699
-```
-
-and Home Assistant presents:
-
-```text
-2.8699 m²
-```
-
-through its area-unit conversion.
 
 ---
 
-# Mowing progress percentage
+# Progress percentage
 
-The Home Assistant development branch calculates progress as:
+Home Assistant derives:
 
 ```python
 mowed_area / area * 100
 ```
 
-provided:
+when both values are usable.
+
+Missing input yields unknown, not an incorrect zero.
+
+Status:
 
 ```text
-area is present
-area != 0
-mowed_area is present
-```
-
-Otherwise progress is returned as unknown/`None`.
-
-Conceptually:
-
-```text
-completed area
-────────────── × 100
- total area
-```
-
-The resulting sensor is:
-
-```text
-Mowing progress
-```
-
-with unit:
-
-```text
-%
-```
-
-and suggested display precision:
-
-```text
-0 decimal places
-```
-
----
-
-# Missing progress is not zero
-
-The implementation correctly distinguishes:
-
-```text
-mowed_area = 0
-```
-
-from:
-
-```text
-mowed_area = None
-```
-
-and also rejects progress calculation when:
-
-```text
-area = 0
-```
-
-or:
-
-```text
-area = None
-```
-
-This is important because unavailable statistics should not be presented as:
-
-```text
-0% complete
-```
-
-when the real state is:
-
-```text
-progress unknown
+Derived / HA implemented / HA tested
 ```
 
 ---
 
 # Estimated mowing duration
 
-For models declaring:
+For:
 
 ```text
 mowing_job_progress=True
 ```
 
-the Home Assistant development branch interprets:
+Home Assistant interprets:
 
 ```text
 StatsEvent.time
@@ -570,75 +259,23 @@ as:
 Estimated mowing duration
 ```
 
-rather than the generic:
+with native seconds and suggested display in minutes.
+
+Example test:
 
 ```text
-Mowing duration
+2304 seconds → 38.4 minutes
 ```
 
-The sensor uses:
+This interpretation is model-gated.
 
-```text
-SensorDeviceClass.DURATION
-```
-
-with protocol/client values represented natively as seconds and a suggested Home Assistant display unit of minutes.
-
-The current automated test uses:
-
-```text
-time = 2304
-```
-
-and expects:
-
-```text
-38.4 minutes
-```
-
-in Home Assistant.
+It is not a universal statement about `StatsEvent.time`.
 
 ---
 
-# ETA interpretation should remain model-specific
+# Current O1200 progress entities
 
-The Home Assistant branch deliberately gates this interpretation behind:
-
-```text
-mowing_job_progress
-```
-
-This distinction is important.
-
-It means the implementation does **not** claim:
-
-```text
-StatsEvent.time
-```
-
-always means estimated duration on every ECOVACS device.
-
-Instead:
-
-```text
-normal device
-    │
-    ▼
-time → operation duration
-
-mower with mowing_job_progress
-    │
-    ▼
-time → estimated mowing duration
-```
-
-The exact ECOVACS semantics should continue to be verified on additional GOAT models before enabling the flag elsewhere.
-
----
-
-# Current progress entities
-
-For the researched O1200 implementation, Home Assistant creates entities equivalent to:
+The development tests cover entities equivalent to:
 
 ```text
 sensor.goat_o1200_lidar_area_mowed
@@ -646,188 +283,445 @@ sensor.goat_o1200_lidar_mowing_progress
 sensor.goat_o1200_lidar_estimated_mowing_duration
 ```
 
-These are explicitly covered by Home Assistant tests.
+---
+
+# Common settings already fit generic HA platforms
+
+Several common GOAT capabilities naturally map to existing Home Assistant entity patterns.
+
+Examples:
+
+| Capability | Representation |
+| --- | --- |
+| `advanced_mode` | switch |
+| `true_detect` | switch |
+| `border_switch` | switch |
+| `child_lock` | switch |
+| `moveup_warning` | switch |
+| `cross_map_border_warning` | switch |
+| `safe_protect` | switch |
+| `cut_direction` | number |
+| `volume` | number |
+
+Less common configuration can be disabled by default to avoid clutter.
 
 ---
 
-# Total statistics
+# Global cutting direction
 
-Cumulative statistics remain separate from current-job progress.
-
-They are exposed through:
-
-```text
-TotalStatsEvent
-```
-
-as concepts such as:
-
-```text
-Total area mowed
-Total mowing duration
-Total mowings
-```
-
-These should not be used for active-job progress calculations.
-
----
-
-# Current boolean mower settings
-
-The Home Assistant Ecovacs integration already maps a number of:
-
-```text
-CapabilitySetEnable
-```
-
-settings to:
-
-```text
-switch
-```
-
-entities.
-
-GOAT-relevant examples include:
-
-| `deebot_client` capability | Home Assistant type |
-| -------------------------- | ------------------- |
-| `advanced_mode`            | switch              |
-| `true_detect`              | switch              |
-| `border_switch`            | switch              |
-| `child_lock`               | switch              |
-| `moveup_warning`           | switch              |
-| `cross_map_border_warning` | switch              |
-| `safe_protect`             | switch              |
-
-These are normally classified as:
-
-```text
-EntityCategory.CONFIG
-```
-
-and several are disabled by default in the entity registry.
-
-This is a sensible pattern for advanced mower configuration.
-
----
-
-# Why advanced settings may be disabled by default
-
-GOAT exposes many settings that are not required for normal day-to-day mower control.
-
-Making all of them enabled by default could create a large and confusing device page.
-
-A reasonable Home Assistant structure is:
-
-```text
-Primary entities
-    │
-    ├── lawn mower
-    ├── battery
-    ├── progress
-    └── key status
-
-Advanced configuration
-    │
-    ├── TrueDetect
-    ├── border behaviour
-    ├── child lock
-    └── other settings
-```
-
-with less commonly used configuration entities disabled by default.
-
----
-
-# Cutting direction
-
-Home Assistant already represents:
+The generic setting:
 
 ```text
 settings.cut_direction
 ```
 
-as a:
+is represented as a Home Assistant:
 
 ```text
 number
 ```
 
-entity.
-
-Current configuration:
+with current design:
 
 ```text
-minimum = 0
-maximum = 180
-step = 1
-unit = °
+0–180°
+step 1°
 ```
 
-Source event:
+This is a global/shared capability.
+
+It should not automatically be conflated with the new O1200 zone-specific:
 
 ```text
-CutDirectionEvent.angle
+AreaParameter.angle
 ```
-
-This is a good example of using the Home Assistant entity type that naturally matches the `deebot_client` capability.
 
 ---
 
-# Volume
+# O1200 area-parameter capability
 
-System volume is also represented as a:
-
-```text
-number
-```
-
-entity.
-
-Current defaults include:
+Development PRs #1767/#1768 introduce:
 
 ```text
-minimum = 0
-maximum = 10
-step = 1
+settings.area_parameter
 ```
 
-The maximum can also be updated from:
+with state:
 
 ```text
-VolumeEvent.maximum
+AreaParameterEvent
 ```
 
-when the device reports it.
+Each zone contains:
+
+```text
+area_id
+mow_height_level
+cut_mode
+obstacle_height
+angle
+```
+
+Detailed protocol documentation:
+
+[O1200 area parameters](area-parameters.md)
 
 Status:
 
-**Currently represented**
-
----
-
-# Newly researched mower settings
-
-The mower settings development branch adds capabilities that are not yet represented by the reviewed Home Assistant progress branch.
-
-These include:
-
 ```text
-ai_recognition
-humanoid_ai
-narrow_adapt
-animal_protection
-rain_delay
-fall_volume
-protect_state
+Client fork implemented
+Python tested
+Protocol observed
+Home Assistant not yet exposed
 ```
 
-These require Home Assistant platform work after the corresponding `deebot_client` support is available.
+---
+
+# Why area parameters are not simple independent settings
+
+The low-level setter requires:
+
+```text
+areaID
+mowHeightLevel
+cutMode
+obstacleHeight
+angle
+```
+
+together.
+
+There is no independent low-level command documented here such as:
+
+```text
+setMowHeight(areaID, value)
+```
+
+Therefore exposing four independent writable HA entities without state-preserving write logic would be unsafe.
+
+Bad conceptual implementation:
+
+```text
+user changes height
+      │
+      ▼
+send areaID + height only
+```
+
+when the protocol expects the complete tuple.
+
+Also unsafe:
+
+```text
+user changes height
+      │
+      ▼
+send default cutMode / obstacleHeight / angle
+```
+
+because this may overwrite valid zone configuration.
 
 ---
 
-# Recommended: AI recognition
+# Safe area-parameter write pattern
+
+Recommended architecture:
+
+```text
+AreaParameterEvent
+      │
+      ▼
+cache latest state
+      │
+      ▼
+user changes one field
+      │
+      ▼
+find target area_id
+      │
+      ▼
+copy full current AreaParameter
+      │
+      ▼
+replace requested field only
+      │
+      ▼
+SetAreaParameter(...)
+      │
+      ▼
+wait for onAreaParameter confirmation
+```
+
+This is the same complete-state principle used for other structured settings.
+
+---
+
+# Cutting height in Home Assistant
+
+The status has changed.
+
+For O1200 the protocol is now mapped through:
+
+```text
+mow_height_level
+```
+
+So the limitation is no longer:
+
+```text
+cutting height command unknown
+```
+
+Instead, the remaining blocker for a polished Home Assistant entity is the mapping:
+
+```text
+raw mowHeightLevel
+       │
+       ▼
+physical/app cutting height
+```
+
+A user-facing `number` entity should only be created once the integration knows:
+
+```text
+minimum
+maximum
+step
+unit
+level-to-height conversion
+```
+
+## Possible interim designs
+
+A low-level developer action could expose the raw tuple.
+
+A user-facing height entity should wait for validated physical semantics.
+
+This keeps Home Assistant from displaying a misleading "mm" value.
+
+---
+
+# Zone cut mode in Home Assistant
+
+Raw field:
+
+```text
+cut_mode
+```
+
+is mapped.
+
+A future Home Assistant:
+
+```text
+select
+```
+
+would be appropriate **if** the valid enum values and labels are known.
+
+Current blocker:
+
+```text
+integer value → confirmed app/user-facing meaning
+```
+
+Do not reuse generic `efficiency_mode` merely because the concepts sound similar.
+
+---
+
+# Zone obstacle-height parameter in Home Assistant
+
+Raw field:
+
+```text
+obstacle_height
+```
+
+is mapped.
+
+A future entity type depends on the semantics:
+
+```text
+number
+```
+
+if it is a physical stepped height, or potentially:
+
+```text
+select
+```
+
+if ECOVACS exposes discrete categories.
+
+The app/protocol mapping should determine the entity type.
+
+---
+
+# Zone angle in Home Assistant
+
+Raw area field:
+
+```text
+angle
+```
+
+is mapped.
+
+It should not immediately become a second obvious "Cut direction" entity until its relationship with:
+
+```text
+settings.cut_direction
+```
+
+is understood.
+
+Potential designs include:
+
+```text
+global cut direction
+per-zone mowing angle
+```
+
+if evidence shows they are separate concepts.
+
+---
+
+# Area parameters and zone metadata
+
+A good user-facing implementation needs:
+
+```text
+area_id → display name
+```
+
+because users should choose:
+
+```text
+Front lawn
+Back lawn
+Side lawn
+```
+
+rather than:
+
+```text
+2
+3
+4
+```
+
+The area-parameter PRs establish the `areaID` side of this mapping.
+
+The zone-name metadata source remains a separate research task.
+
+---
+
+# Area parameters do not solve selected-zone start
+
+The current upstream O1200 profile still does not expose:
+
+```text
+CapabilityCleanAction.area
+```
+
+Therefore:
+
+```text
+configure zone 2
+```
+
+and:
+
+```text
+start mowing zone 2
+```
+
+must remain separate integration tasks.
+
+A future Home Assistant zone-mowing action should only be added after the selected-zone start protocol/capability is confidently mapped.
+
+---
+
+# Potential Home Assistant area-parameter designs
+
+Several designs are possible.
+
+## 1. Composite action
+
+A Home Assistant action accepting:
+
+```text
+area
+mow height
+cut mode
+obstacle height
+angle
+```
+
+closely matches the protocol.
+
+Advantages:
+
+```text
+clear tuple semantics
+no hidden partial write
+```
+
+Disadvantage:
+
+```text
+less convenient for dashboards
+```
+
+## 2. Per-zone entities
+
+Example concept:
+
+```text
+number.front_lawn_cutting_height
+select.front_lawn_cut_mode
+number.front_lawn_angle
+```
+
+Advantages:
+
+```text
+automation-friendly
+```
+
+Challenges:
+
+```text
+entity count
+zone metadata dependency
+state-preserving writes
+dynamic zones
+```
+
+## 3. Selected-zone controls
+
+A zone selector plus controls for the selected zone.
+
+Advantages:
+
+```text
+fewer entities
+```
+
+Challenges:
+
+```text
+stateful UI
+multi-user automation ambiguity
+```
+
+No design should be chosen solely because it is easy to implement.
+
+It should follow Home Assistant architecture and confirmed GOAT semantics.
+
+---
+
+# AI recognition
 
 Capability:
 
@@ -835,33 +729,23 @@ Capability:
 settings.ai_recognition
 ```
 
-Type:
-
-```text
-CapabilitySetEnable
-```
-
-Recommended Home Assistant representation:
+Likely representation:
 
 ```text
 switch
 ```
 
-Potential role:
-
-```text
-configuration entity
-```
-
-Because the exact user-facing app wording is still being mapped, naming should remain conservative until correlation is complete.
-
 Status:
 
-**Client fork implemented / Home Assistant not yet exposed**
+```text
+Client fork implemented / HA not yet exposed
+```
+
+User-facing naming should wait for stronger app-label correlation.
 
 ---
 
-# Recommended: Humanoid AI
+# Humanoid AI / smart avoidance
 
 Capability:
 
@@ -869,39 +753,23 @@ Capability:
 settings.humanoid_ai
 ```
 
-Type:
-
-```text
-CapabilitySetEnable
-```
-
-Recommended Home Assistant representation:
+Likely representation:
 
 ```text
 switch
 ```
 
-The implementation currently describes this as:
+Implementation description:
 
 ```text
 Smart mowing with avoidance
 ```
 
-A user-facing translation should preferably use confirmed ECOVACS app terminology rather than the raw:
-
-```text
-Humanoid AI
-```
-
-wire name.
-
-Status:
-
-**Client fork implemented / Home Assistant not yet exposed**
+Raw protocol name should not automatically be exposed as the UI label.
 
 ---
 
-# Recommended: narrow passage adaptation
+# Narrow passage adaptation
 
 Capability:
 
@@ -909,31 +777,21 @@ Capability:
 settings.narrow_adapt
 ```
 
-Type:
-
-```text
-CapabilitySetEnable
-```
-
-Recommended Home Assistant representation:
+Likely representation:
 
 ```text
 switch
 ```
 
-Entity category:
-
-```text
-CONFIG
-```
-
 Status:
 
-**Client fork implemented / Home Assistant not yet exposed**
+```text
+Client fork implemented / HA not yet exposed
+```
 
 ---
 
-# Recommended: lifted-alarm volume
+# Lifted-alarm volume
 
 Capability:
 
@@ -941,49 +799,26 @@ Capability:
 settings.fall_volume
 ```
 
-Event:
-
-```text
-FallVolumeEvent
-```
-
-Recommended representation:
+Likely representation:
 
 ```text
 number
 ```
 
-Likely range based on current implementation:
+Current implementation suggests:
 
 ```text
 0–10
+step 1
 ```
 
-with:
-
-```text
-step = 1
-```
-
-This should remain separate from normal system volume.
-
-Conceptually:
-
-```text
-Volume
-├── system volume
-└── lifted-alarm volume
-```
-
-Status:
-
-**Client fork implemented / Home Assistant not yet exposed**
+It should remain separate from normal system volume.
 
 ---
 
-# Animal protection needs multiple entities
+# Animal protection is structured state
 
-Animal protection cannot accurately be represented by a single switch because its capability contains:
+Animal protection contains:
 
 ```text
 enabled
@@ -991,88 +826,31 @@ start
 end
 ```
 
-A possible Home Assistant representation is:
+A possible HA representation is:
 
 ```text
-switch.goat_animal_protection
-time.goat_animal_protection_start
-time.goat_animal_protection_end
+switch
+time start
+time end
 ```
 
-However, all three values belong to one ECOVACS configuration object.
+But every write must preserve the other fields.
 
-This creates an implementation concern.
-
-When changing only:
-
-```text
-enabled
-```
-
-the client command still needs:
-
-```text
-start
-end
-```
-
-Likewise, changing:
-
-```text
-start
-```
-
-requires retaining:
-
-```text
-enabled
-end
-```
-
-Home Assistant therefore needs to keep the latest complete `AnimalProtectionEvent` when constructing each write.
-
----
-
-# Avoid destructive partial updates
-
-Structured settings such as animal protection should not be implemented like independent protocol fields if the ECOVACS command expects the entire configuration.
-
-Bad conceptual behaviour:
-
-```text
-user changes start time
-        │
-        ▼
-send only start
-```
-
-when protocol expects:
-
-```text
-enabled + start + end
-```
-
-Preferred pattern:
+Recommended pattern:
 
 ```text
 latest AnimalProtectionEvent
-        │
-        ├── enabled
-        ├── start
-        └── end
-             │
-             ▼
-change requested field
-             │
-             ▼
+       │
+       ▼
+replace one field
+       │
+       ▼
 send complete configuration
 ```
 
-This prevents one Home Assistant entity from accidentally resetting another value.
-
 ---
 
-# Rain configuration also needs multiple controls
+# Rain configuration is structured state
 
 Rain configuration contains:
 
@@ -1081,760 +859,188 @@ enabled
 delay
 ```
 
-Possible Home Assistant representation:
+Possible representation:
 
 ```text
-switch.goat_rain_protection
-number.goat_rain_delay
+switch
+number/select for delay
 ```
 
-A numeric delay entity naturally matches:
+Current development delay values:
 
 ```text
 0–300 minutes
-step = 30 minutes
+step 30
 ```
 
-A select entity with the explicit supported values would also be possible.
+Writes should preserve the sibling field.
 
-Because both values belong to one:
-
-```text
-SetRainDelay(enabled, delay)
-```
-
-command, the same complete-state principle applies.
+For example, disabling rain protection should preserve the configured delay unless explicitly changed.
 
 ---
 
-# Rain switch write example
+# Runtime protection state
 
-If the current configuration is:
+`ProtectStateEvent` contains runtime booleans.
 
-```text
-enabled = True
-delay = 180
-```
-
-and the user turns rain protection off, Home Assistant should conceptually send:
-
-```text
-enabled = False
-delay = 180
-```
-
-rather than:
-
-```text
-enabled = False
-delay = 0
-```
-
-unless the user explicitly changed the delay.
-
-The protocol supports retaining a configured delay while rain protection is disabled.
-
----
-
-# Rain delay write example
-
-Likewise, if the current state is:
-
-```text
-enabled = True
-delay = 180
-```
-
-and the user selects:
-
-```text
-240 minutes
-```
-
-the command should preserve:
-
-```text
-enabled = True
-```
-
-and send:
-
-```text
-SetRainDelay(
-    enabled=True,
-    delay=240,
-)
-```
-
----
-
-# Runtime protection belongs in binary sensors
-
-The development client exposes:
-
-```text
-ProtectStateEvent
-```
-
-with runtime booleans.
-
-These are not configuration switches.
-
-Recommended Home Assistant type:
+Recommended representation:
 
 ```text
 binary_sensor
 ```
 
-Potential mappings include:
-
-| Client field              | Recommended representation         |
-| ------------------------- | ---------------------------------- |
-| `is_rain_protect`         | binary sensor                      |
-| `is_rain_delay`           | binary sensor                      |
-| `is_anim_protect`         | binary sensor                      |
-| `is_e_stop`               | binary sensor                      |
-| `is_locked`               | binary sensor                      |
-| `is_pin_code`             | possibly diagnostic binary sensor  |
-| `is_prepare_data_success` | diagnostic only, if exposed at all |
-
-This preserves the distinction between:
-
-```text
-configuration
-```
-
-and:
-
-```text
-current runtime condition
-```
-
----
-
-# Current binary-sensor platform needs extension
-
-The reviewed Ecovacs binary-sensor platform currently mainly uses the generic:
-
-```text
-CapabilityEvent
-```
-
-pattern and does not yet define GOAT `ProtectStateEvent` entities.
-
-Therefore supporting mower protection state requires new entity descriptions.
-
-Conceptually:
-
-```text
-caps.protect_state
-       │
-       ▼
-ProtectStateEvent
-       │
-       ├── rain active
-       ├── animal protection active
-       ├── emergency stop
-       └── lock/security states
-```
-
-Multiple Home Assistant binary sensors can subscribe to the same underlying event while extracting different boolean fields.
-
----
-
-# Do not make runtime protection writable
-
-For example:
-
-```text
-binary_sensor.goat_rain_protection_active
-```
-
-should not be implemented as:
-
-```text
-switch.goat_rain_protection_active
-```
-
-because:
+Potential fields:
 
 ```text
 is_rain_protect
+is_rain_delay
+is_anim_protect
+is_e_stop
+is_locked
+is_pin_code
+is_prepare_data_success
 ```
 
-is a reported runtime condition.
+These are not writable settings.
 
-The writable configuration belongs to:
-
-```text
-RainDelayEvent / SetRainDelay
-```
-
-These are separate concepts.
+Unclear fields should not receive confident user-facing names.
 
 ---
 
 # Zone mowing
 
-Selected-zone mowing is not currently exposed by the reviewed:
+Selected-zone mowing is not exposed by the reviewed `EcovacsMower`.
 
-```text
-EcovacsMower
-```
-
-entity.
-
-The standard mower implementation currently controls:
-
-```text
-start
-pause
-dock
-```
-
-without passing area identifiers.
-
-This is especially relevant for O1200, where the current upstream client profile also lacks an area capability.
-
-Status:
-
-**Not exposed in current Home Assistant mower entity**
-
----
-
-# Zone selection is not a simple scalar setting
-
-A single-zone selector could theoretically be represented by:
-
-```text
-select
-```
-
-but this becomes inadequate when:
-
-* multiple zones can be selected
-* zone order matters
-* per-zone settings exist
-* mowing mode accompanies the selection
-
-A future Home Assistant design should therefore be based on confirmed GOAT functionality rather than forcing all zone mowing into a single simple select.
-
----
-
-# Potential zone architecture
-
-A future implementation could conceptually separate:
+A future architecture should separate:
 
 ```text
 Zone metadata
-    │
-    ├── ID
+    ├── area ID
     ├── name
     └── geometry
 
-Mowing action
-    │
-    ├── selected zones
+Zone configuration
+    ├── height
     ├── mode
-    └── other options
+    ├── obstacle parameter
+    └── angle
+
+Mowing action
+    ├── selected zone(s)
+    └── start
 ```
 
-The user-facing action should use zone names while `deebot_client` sends numeric identifiers.
-
-For example:
-
-```text
-"Front lawn"
-      │
-      ▼
-zone ID 5
-      │
-      ▼
-mower command
-```
-
----
-
-# Area names
-
-Human-readable zone names should be treated as metadata, not embedded into the low-level mowing command.
-
-A Home Assistant implementation should ideally display:
-
-```text
-Front lawn
-Side lawn
-Back lawn
-```
-
-while internally maintaining:
-
-```text
-5
-8
-12
-```
-
-or whatever identifiers the mower protocol actually uses.
-
-This keeps UI and protocol responsibilities separate.
-
----
-
-# Cutting height
-
-No cutting-height capability is currently mapped in the documented client work.
-
-Therefore Home Assistant should **not** create a speculative cutting-height entity.
-
-Once the protocol is mapped, a likely representation would be:
-
-```text
-number
-```
-
-if height is a continuous stepped numeric range.
-
-For example:
-
-```text
-number.goat_cutting_height
-```
-
-would require confirmed:
-
-```text
-minimum
-maximum
-step
-unit
-```
-
-before implementation.
-
-Status:
-
-**Not yet mapped**
+This reflects the protocol more accurately than a single "zone" scalar.
 
 ---
 
 # Mowing speed
 
-No mower-speed capability is currently mapped.
+A dedicated mower-speed protocol remains unmapped.
 
-Depending on protocol semantics, a future Home Assistant representation might be:
-
-```text
-select
-```
-
-for discrete modes such as:
-
-```text
-slow
-normal
-fast
-```
-
-or:
-
-```text
-number
-```
-
-for a numeric speed.
-
-The protocol should determine the entity type rather than the app appearance alone.
-
-Status:
-
-**Not yet mapped**
-
----
-
-# Mowing efficiency/mode
-
-Likewise, a GOAT mowing-efficiency mode should likely become:
-
-```text
-select
-```
-
-if ECOVACS exposes a fixed set of modes.
-
-However, the generic:
-
-```text
-efficiency_mode
-```
-
-capability used elsewhere in the library should not be reused for GOAT until protocol compatibility is confirmed.
-
-Status:
-
-**Not yet mapped**
+Do not create a speculative HA `number` or `select` until the protocol shape is known.
 
 ---
 
 # Entity-type guidelines
 
-A useful rule for future GOAT integration work is:
+| Capability shape | Home Assistant representation |
+| --- | --- |
+| Main mower lifecycle | `lawn_mower` |
+| Boolean writable setting | `switch` |
+| Numeric setting | `number` |
+| Fixed enum/options | `select` |
+| Measurement | `sensor` |
+| Runtime boolean | `binary_sensor` |
+| Scheduled time | `time` |
+| Composite/structured write | action/service or carefully coordinated entities |
+| Multi-zone selection/action | dedicated action/UI design based on semantics |
 
-| Capability shape         | Home Assistant representation                |
-| ------------------------ | -------------------------------------------- |
-| Main mower lifecycle     | `lawn_mower`                                 |
-| `CapabilitySetEnable`    | `switch`                                     |
-| Numeric `CapabilitySet`  | `number`                                     |
-| Fixed enum/options       | `select`                                     |
-| Measurement/status value | `sensor`                                     |
-| Runtime boolean state    | `binary_sensor`                              |
-| Scheduled time value     | `time`                                       |
-| One-shot action          | button/action/service depending on semantics |
-
-The actual feature semantics remain more important than the Python type alone.
-
----
-
-# Recommended primary GOAT entity set
-
-A mature GOAT device page could eventually expose the most important entities prominently:
-
-```text
-lawn_mower.goat
-sensor.goat_battery
-sensor.goat_area_mowed
-sensor.goat_mowing_progress
-sensor.goat_estimated_mowing_duration
-```
-
-when supported by the model.
-
-Less commonly changed settings can remain configuration entities and may be disabled by default.
+The semantic shape matters more than the Python type alone.
 
 ---
 
-# Recommended configuration group
+# Capability-driven creation
 
-Potential advanced/configuration entities include:
-
-```text
-TrueDetect
-AI recognition
-smart avoidance
-narrow passage adaptation
-border behaviour
-cutting direction
-system volume
-lifted-alarm volume
-rain protection
-rain delay
-animal protection
-animal protection schedule
-```
-
-These should not overwhelm the main mower controls.
-
----
-
-# Recommended diagnostic/status group
-
-Useful status and diagnostic entities include:
+Home Assistant should continue to create entities based on capabilities:
 
 ```text
-battery
-error
-Wi-Fi RSSI
-lifespan values
-rain protection active
-rain delay active
-animal protection active
-emergency stop
-lock/security state
+capability absent
+     │
+     ▼
+no entity
+
+capability present
+     │
+     ▼
+entity/action available
 ```
 
-Not every raw protocol flag needs to be enabled by default.
-
-Fields whose semantics remain unclear should normally remain hidden from normal users until better understood.
-
----
-
-# `isPrepareDataSuccess`
-
-Although:
-
-```text
-ProtectStateEvent.is_prepare_data_success
-```
-
-is available in the development parser, its user-facing meaning is not known.
-
-Recommendation:
-
-```text
-Do not expose by default.
-```
-
-It may be useful for diagnostics during development, but a cryptic binary sensor would add little value to normal users.
-
----
-
-# `isPinCode`
-
-The same caution applies to:
-
-```text
-is_pin_code
-```
-
-until its exact meaning is established.
-
-It should not be labelled:
-
-```text
-PIN enabled
-```
-
-or:
-
-```text
-PIN required
-```
-
-without evidence.
-
-If exposed during research, it should be diagnostic and clearly labelled as an unresolved protocol state.
-
----
-
-# Lock state
-
-Likewise:
-
-```text
-is_locked
-```
-
-should not automatically replace or duplicate:
-
-```text
-child_lock
-```
-
-until their relationship is understood.
-
-Home Assistant should avoid creating two apparently identical user-facing entities for protocol concepts whose semantics may differ.
-
----
-
-# Capability-driven entity creation
-
-The existing Ecovacs integration uses capability-driven entity creation.
-
-Conceptually:
-
-```text
-Does device expose capability?
-         │
-       ┌─┴─┐
-       │   │
-      no  yes
-       │   │
-       ▼   ▼
- no entity entity created
-```
-
-This is particularly valuable for GOAT because mower models differ.
-
-New entities should continue to follow this pattern rather than checking hard-coded model names wherever possible.
-
----
-
-# Model-specific semantic flags
-
-Sometimes the same generic event has different semantics on a mower model.
-
-The progress implementation handles this with:
-
-```text
-CapabilityStats.mowing_job_progress
-```
-
-This is a useful pattern when semantics differ but the underlying event type can remain shared.
-
-It is preferable to logic such as:
+This is preferable to hard-coding:
 
 ```python
 if model == "O1200":
 ```
 
-inside Home Assistant.
-
-The client hardware profile should describe the capability whenever possible.
+where the client can express the distinction in the hardware profile.
 
 ---
 
-# Home Assistant should not parse ECOVACS payloads
+# Home Assistant should not parse raw ECOVACS fields
 
-Protocol-specific fields such as:
+Raw names such as:
 
 ```text
+mowHeightLevel
+cutMode
+obstacleHeight
 mowedArea
 isRainProtect
-getRecognization
-setAnimProtect
 ```
 
-belong in:
+belong in `deebot_client`.
+
+Home Assistant should ideally consume:
 
 ```text
-deebot_client
-```
-
-Home Assistant should ideally receive:
-
-```text
+AreaParameterEvent.mow_height_level
+AreaParameterEvent.cut_mode
+AreaParameterEvent.obstacle_height
 StatsEvent.mowed_area
 ProtectStateEvent.is_rain_protect
-AiRecognitionEvent
-AnimalProtectionEvent
 ```
 
-This keeps protocol reverse-engineering isolated from integration presentation.
-
----
-
-# Development dependency order
-
-GOAT features should generally be added in this order:
-
-```text
-1. protocol understood
-       │
-       ▼
-2. deebot_client implementation
-       │
-       ▼
-3. deebot_client tests
-       │
-       ▼
-4. hardware capability enabled
-       │
-       ▼
-5. Home Assistant entity
-       │
-       ▼
-6. Home Assistant tests/translations
-```
-
-Adding a Home Assistant entity before the client has a stable normalised capability should usually be avoided.
-
----
-
-# Home Assistant test coverage
-
-The mower development branch includes dedicated tests for:
-
-```text
-lawn mower state
-start mowing
-pause
-dock
-```
-
-The progress work additionally tests:
-
-```text
-area mowed
-mowing progress
-estimated mowing duration
-missing progress inputs
-unit conversion
-entity IDs
-translation keys
-unique IDs
-```
-
-This means the current mower/progress representation is tested at the Home Assistant entity layer in addition to the lower-level client tests.
-
----
-
-# Current tested mower lifecycle
-
-Home Assistant tests verify that:
-
-```text
-State.CLEANING
-      │
-      ▼
-LawnMowerActivity.MOWING
-```
-
-and:
-
-```text
-State.DOCKED
-      │
-      ▼
-LawnMowerActivity.DOCKED
-```
-
-They also verify that Home Assistant services invoke:
-
-```text
-Charge()
-CleanV2(CleanAction.PAUSE)
-CleanV2(CleanAction.START)
-```
-
-for the corresponding mower actions.
+This keeps reverse-engineering logic in the protocol client.
 
 ---
 
 # Current implementation summary
 
-## Implemented in Home Assistant mower work
-
-Current branch support includes:
+## Implemented in reviewed HA mower work
 
 ```text
-GOAT lawn_mower entity
-start mowing
+lawn_mower entity
+start
 pause
 dock
-mower-aware activity mapping
-mower-specific statistic labels
+mower-aware state mapping
 battery
 maintenance sensors
-total mowing statistics
+mower-specific statistics labels
 ```
 
-The progress development adds, when supported by the client model:
+## Implemented in HA progress work
 
 ```text
 current area mowed
-mowing progress percentage
+mowing progress %
 estimated mowing duration
 ```
 
-## Already naturally supported by generic entity architecture
-
-Existing GOAT capabilities can map through current generic platforms for features such as:
+## Client features requiring HA work
 
 ```text
-TrueDetect → switch
-border switch → switch
-child lock → switch
-move-up warning → switch
-safe protect → switch
-cut direction → number
-volume → number
-```
-
-## Client features still requiring Home Assistant work
-
-Newly researched capabilities include:
-
-```text
+area_parameter
 AI recognition
 Humanoid AI / smart avoidance
 narrow adaptation
@@ -1844,97 +1050,86 @@ lifted-alarm volume
 runtime protection state
 ```
 
-## Still requiring protocol/client work first
-
-Do not yet implement speculative Home Assistant entities for:
+## Protocol/client work still needed before HA
 
 ```text
-cutting height
 mowing speed
-GOAT mowing efficiency/mode
-unverified zone control
-unverified security-state meanings
+O1200 selected-zone start capability
+zone display-name metadata
+unresolved security-state semantics
+```
+
+## Semantic mapping needed before polished HA entities
+
+```text
+mowHeightLevel → physical height
+cutMode → labels/options
+obstacleHeight → user meaning/unit
+area angle ↔ global cut direction
 ```
 
 ---
 
-# Recommended design principle
-
-The Home Assistant integration should expose:
+# Recommended development order for area parameters
 
 ```text
-what the mower means
+1. Client GET/SET/PUSH implementation
+       │
+       ▼
+2. Client tests
+       │
+       ▼
+3. Hardware capability
+       │
+       ▼
+4. Map raw values to app/physical semantics
+       │
+       ▼
+5. Resolve areaID → display name
+       │
+       ▼
+6. Choose HA entity/action architecture
+       │
+       ▼
+7. Implement state-preserving writes
+       │
+       ▼
+8. Add HA tests/translations
+       │
+       ▼
+9. Physical end-to-end verification
 ```
 
-rather than:
-
-```text
-what the original vacuum-oriented protocol calls it
-```
-
-Examples:
-
-```text
-State.CLEANING
-      ↓
-Mowing
-```
-
-```text
-cleanings
-      ↓
-Mowings
-```
-
-```text
-stats area
-      ↓
-Area mowed
-```
-
-while retaining protocol naming inside `deebot_client`.
-
-This separation allows GOAT support to coexist cleanly with existing DEEBOT vacuum support.
+Steps 1–3 are substantially represented by PR #1767/#1768.
 
 ---
 
-# Relevant client source
+# Relevant development work
 
-## Progress development
+Client:
 
-* [`deebot_client/capabilities.py`](https://github.com/monsivar/client.py/blob/feature/mower-stats-progress/deebot_client/capabilities.py)
-* [`deebot_client/events/__init__.py`](https://github.com/monsivar/client.py/blob/feature/mower-stats-progress/deebot_client/events/__init__.py)
-* [`deebot_client/hardware/2i0fns.py`](https://github.com/monsivar/client.py/blob/feature/mower-stats-progress/deebot_client/hardware/2i0fns.py)
+- [`PR #1767`](https://github.com/DeebotUniverse/client.py/pull/1767)
+- [`PR #1768`](https://github.com/DeebotUniverse/client.py/pull/1768)
+- [`Issue #1610`](https://github.com/DeebotUniverse/client.py/issues/1610)
 
-## Mower settings development
+Home Assistant progress branch:
 
-* [`deebot_client/capabilities.py`](https://github.com/monsivar/client.py/blob/feature/ecovacs-mower-settings/deebot_client/capabilities.py)
-* [`deebot_client/hardware/2i0fns.py`](https://github.com/monsivar/client.py/blob/feature/ecovacs-mower-settings/deebot_client/hardware/2i0fns.py)
+- `feature/ecovacs-mower-progress`
 
-# Relevant Home Assistant development source
-
-* [`homeassistant/components/ecovacs/lawn_mower.py`](https://github.com/monsivar/core/blob/feature/ecovacs-mower-progress/homeassistant/components/ecovacs/lawn_mower.py)
-* [`homeassistant/components/ecovacs/sensor.py`](https://github.com/monsivar/core/blob/feature/ecovacs-mower-progress/homeassistant/components/ecovacs/sensor.py)
-* [`homeassistant/components/ecovacs/switch.py`](https://github.com/monsivar/core/blob/feature/ecovacs-mower-progress/homeassistant/components/ecovacs/switch.py)
-* [`homeassistant/components/ecovacs/number.py`](https://github.com/monsivar/core/blob/feature/ecovacs-mower-progress/homeassistant/components/ecovacs/number.py)
-* [`homeassistant/components/ecovacs/select.py`](https://github.com/monsivar/core/blob/feature/ecovacs-mower-progress/homeassistant/components/ecovacs/select.py)
-* [`homeassistant/components/ecovacs/binary_sensor.py`](https://github.com/monsivar/core/blob/feature/ecovacs-mower-progress/homeassistant/components/ecovacs/binary_sensor.py)
-
-# Relevant Home Assistant tests
-
-* [`tests/components/ecovacs/test_lawn_mower.py`](https://github.com/monsivar/core/blob/feature/ecovacs-mower-progress/tests/components/ecovacs/test_lawn_mower.py)
-* [`tests/components/ecovacs/test_sensor.py`](https://github.com/monsivar/core/blob/feature/ecovacs-mower-progress/tests/components/ecovacs/test_sensor.py)
+---
 
 # Related documentation
 
-* [Supported models](supported-models.md)
-* [Capability architecture](capabilities.md)
-* [Mowing control](mowing-control.md)
-* [Zone and area mowing](zones-and-areas.md)
-* [Mowing progress and statistics](progress-and-statistics.md)
-* [Mower settings](settings.md)
-* [Rain and protection](rain-and-protection.md)
-* [Obstacle avoidance and AI](obstacle-and-ai.md)
-* [Protocol reference](protocol-reference.md)
-* [Testing status](testing-status.md)
-* [Known limitations](known-limitations.md)
+- [Overview](overview.md)
+- [Supported models](supported-models.md)
+- [Capabilities](capabilities.md)
+- [Mowing control](mowing-control.md)
+- [Zones and areas](zones-and-areas.md)
+- [O1200 area parameters](area-parameters.md)
+- [Progress and statistics](progress-and-statistics.md)
+- [Settings](settings.md)
+- [Rain and protection](rain-and-protection.md)
+- [Obstacle and AI](obstacle-and-ai.md)
+- [Protocol reference](protocol-reference.md)
+- [Testing status](testing-status.md)
+- [Known limitations](known-limitations.md)
