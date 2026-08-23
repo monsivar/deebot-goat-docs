@@ -1455,3 +1455,233 @@ while raw-value semantics remain active research topics.
 - [`docs/testing-status.md`](../docs/testing-status.md)
 - [`docs/known-limitations.md`](../docs/known-limitations.md)
 - [`docs/home-assistant.md`](../docs/home-assistant.md)
+
+
+# GOAT map research — promoted findings
+
+The detailed map-development research was performed as an evidence-first sequence before the current stacked map PRs.
+
+This section records only the findings that materially explain the implementation.
+
+It is not a replacement for the full diagnostic/research notebook.
+
+## Transport / presence
+
+Observed on the researched O1200:
+
+```text
+normal MQ
+    carries onPos / onMapTrack / onMI / onArI
+
+JMQ
+    not required for map-stream activation in controlled runs
+
+appping
+    confirmed live-stream trigger
+
+presence lease
+    approximately 300 seconds
+
+renewal around 240 seconds
+    resets lease
+```
+
+Evidence:
+
+```text
+PROTOCOL + DEVICE/STATE CORRELATION + REPEATED CONTROLLED RUNS
+```
+
+The production map stack does not yet implement this lifecycle.
+
+## `getMI`
+
+Both legacy and N-GIoT `getMI` controls could solicit:
+
+```text
+onMI
+onArI
+```
+
+while presence was active.
+
+The direct acknowledgement did not contain the retained map-bearing value.
+
+The pushed events carried the data.
+
+## `onMI` timing forms
+
+Two stable O1200 representations were isolated:
+
+```text
+876-character form
+    request-associated
+
+52-character form
+    cadence-associated (~60 s)
+```
+
+A controlled repeatability run supported that explicit `getMI` produced the 876 form promptly and did not reset the independent short-form cadence.
+
+These are timing labels only.
+
+## `onMI` static geometry
+
+The request-associated form was reduced to a narrow production parser proposal.
+
+Evidence supports:
+
+```text
+canonical Base64
+trimmed LZMA-Alone framing
+infoSize validation
+s1 geometry record
+eight-direction RLE
+50-unit step
+2,336 points
+known boundary bounds
+known open gap preserved
+```
+
+The geometry matches the independent reference viewer point-for-point.
+
+This research became PR #1782.
+
+## `onArI`
+
+Complete type-0 snapshots were shown to use:
+
+```text
+serial/index chunking
+trimmed LZMA-Alone
+grouped/layered JSON
+layer 1 persistent work-area geometry
+same eight-direction RLE family
+```
+
+Work-area geometry is local rather than already registered to the main-map frame.
+
+## AreaSet framing correction
+
+A read-only scan of:
+
+```text
+198 getAreaSet type="ar" responses
+17 Phase 2 captures
+```
+
+showed:
+
+```text
+internal trimmed-LZMA decompressed-size field
+    matched decoded length: 198/198
+
+envelope infoSize
+    matched decoded length: 0/198
+```
+
+This corrected an earlier diagnostic false negative.
+
+The rule is now implemented in PR #1788 and is scoped specifically to AreaSet.
+
+## Work-area registration
+
+Research established an evidence-backed registration method:
+
+```text
+local area contour
+      │
+      ▼
+longest shared contiguous direction sequence
+with static main boundary
+      │
+      ▼
+translation
+      │
+      ▼
+exact matched-run verification
+```
+
+No fixed model-specific offset is required.
+
+No scale or rotation is introduced for this static work-area registration.
+
+Ambiguous translations are rejected.
+
+This became PR #1788.
+
+## Live-position transform remains unresolved
+
+Static map geometry and registered work areas share one proven frame.
+
+Live position does not.
+
+The strongest tested rotation candidate is currently:
+
+```text
+135 degrees
+```
+
+but translation remains non-unique.
+
+Therefore:
+
+```text
+no production live → static transform
+```
+
+is the current safe conclusion.
+
+## `onMapTrack`
+
+Diagnostic work can strictly reconstruct the observed chunk/update structure.
+
+Observed diagnostic update behaviour includes:
+
+```text
+update 1
+    replaces complete keyed state
+
+update 2
+    replaces individual keyed records
+```
+
+This has been useful for activity/timing research.
+
+It has **not** been promoted into the production Map MVP.
+
+## Map editing
+
+Controlled reduced-avoidance-zone research identified the:
+
+```text
+SpecialContour
+```
+
+family as most tightly associated with creation/deletion.
+
+The experiment did not create a true No-Entry Zone.
+
+Static `onMI` remained stable through that controlled change and the tested AreaSet `ar`/`vw` values were also stable.
+
+The results do not justify a complete SpecialContour geometry parser or general map-editing implementation.
+
+## Promotion path
+
+The map research has now been promoted into:
+
+```text
+#1567 → shared mower geometry
+#1782 → static onMI boundary
+#1788 → registered work areas
+#1789 → shared Map/SVG static MVP
+```
+
+Remaining live/acquisition/editing findings stay research-level until their semantics are sufficiently proven.
+
+See:
+
+[`docs/map.md`](../docs/map.md)
+
+---
+
