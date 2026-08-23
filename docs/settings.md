@@ -4,39 +4,25 @@ This page provides an overview of known ECOVACS GOAT mower settings in [`DeebotU
 
 Last reviewed against:
 
-* upstream `DeebotUniverse/client.py` `dev`
-* development branch `feature/ecovacs-mower-settings`
+- upstream `DeebotUniverse/client.py` `dev`
+- mower development branches
+- [`PR #1767`](https://github.com/DeebotUniverse/client.py/pull/1767)
+- [`PR #1768`](https://github.com/DeebotUniverse/client.py/pull/1768)
 
 Date: **2026-08-23**
 
 ## Scope
 
-This page focuses on configurable mower settings.
+This page distinguishes between:
 
-It distinguishes between:
+- settings implemented in reviewed upstream
+- mower-specific settings implemented in development branches
+- O1200 zone-specific area parameters
+- runtime protection state, which is not itself a setting
+- values whose protocol is mapped but whose physical/user-facing semantics remain incomplete
+- features that remain unmapped
 
-* settings already implemented upstream
-* mower-specific settings implemented in the development fork
-* runtime protection states that are reported by the mower but are not themselves settings
-* mower features that remain unmapped
-
-Detailed rain/protection and AI/obstacle behaviour are documented on separate pages.
-
----
-
-# Evidence levels
-
-The following status terms are used throughout this page.
-
-| Status                   | Meaning                                                          |
-| ------------------------ | ---------------------------------------------------------------- |
-| **Upstream implemented** | Present in current `DeebotUniverse/client.py` `dev`              |
-| **Fork implemented**     | Implemented in the development fork but not in reviewed upstream |
-| **Protocol observed**    | Seen in actual GOAT communication                                |
-| **Device tested**        | Behaviour verified against a physical mower                      |
-| **Unverified**           | Interpretation still needs additional evidence                   |
-
-Implementation in Python tests is not the same as physical-device testing.
+Implementation in Python is not the same as complete physical-device verification.
 
 ---
 
@@ -54,79 +40,320 @@ using:
 CapabilitySettings(...)
 ```
 
-A setting normally connects:
+Common patterns include:
 
 ```text
-Get command
-    │
-    ▼
+CapabilitySetEnable
+CapabilitySet
+CapabilityNumber
+CapabilitySetTypes
+```
+
+A typical setting connects:
+
+```text
+GET
+ │
+ ▼
 Event
-    │
-    ▲
-    │
-Set command
+ ▲
+ │
+SET
 ```
 
-For example:
-
-```text
-GetBorderSwitch
-       │
-       ▼
-BorderSwitchEvent
-       ▲
-       │
-SetBorderSwitch
-```
-
-This allows integrations to retrieve the current value, receive updates and change the setting through a common capability model.
+Some mower settings also receive a corresponding push message.
 
 ---
 
-# Current settings overview
+# Common upstream GOAT settings
 
-## Upstream settings
+The five reviewed upstream GOAT hardware profiles expose the following common settings:
 
-The reviewed GOAT hardware profiles currently expose the following common upstream settings:
+| Feature | Capability | Type | Reviewed upstream |
+| --- | --- | --- | :---: |
+| Advanced mode | `advanced_mode` | boolean | ✓ |
+| Border switch | `border_switch` | boolean | ✓ |
+| Cutting direction | `cut_direction` | numeric angle | ✓ |
+| Child lock | `child_lock` | boolean | ✓ |
+| Move-up warning | `moveup_warning` | boolean | ✓ |
+| Cross-map border warning | `cross_map_border_warning` | boolean | ✓ |
+| Safe protect | `safe_protect` | boolean | ✓ |
+| TrueDetect | `true_detect` | boolean | ✓ |
+| Volume | `volume` | numeric | ✓ |
 
-| Feature                  | Capability                 | Read | Write | Status               |
-| ------------------------ | -------------------------- | :--: | :---: | -------------------- |
-| Advanced mode            | `advanced_mode`            |   ✓  |   ✓   | Upstream implemented |
-| Border switch            | `border_switch`            |   ✓  |   ✓   | Upstream implemented |
-| Cutting direction        | `cut_direction`            |   ✓  |   ✓   | Upstream implemented |
-| Child lock               | `child_lock`               |   ✓  |   ✓   | Upstream implemented |
-| Move-up warning          | `moveup_warning`           |   ✓  |   ✓   | Upstream implemented |
-| Cross-map border warning | `cross_map_border_warning` |   ✓  |   ✓   | Upstream implemented |
-| Safe protect             | `safe_protect`             |   ✓  |   ✓   | Upstream implemented |
-| TrueDetect               | `true_detect`              |   ✓  |   ✓   | Upstream implemented |
-| Volume                   | `volume`                   |   ✓  |   ✓   | Upstream implemented |
+The protocol names do not always directly match wording in the ECOVACS application.
 
-These capabilities are present in the reviewed upstream mower profiles.
-
-Their exact user-facing wording can differ from the ECOVACS application.
+Model-specific meaning should therefore be established from app/device correlation where necessary.
 
 ---
 
-# Development mower settings
+# O1200 zone-specific area parameters
 
-The development branch adds several GOAT-specific capabilities, currently connected to the O1200 LiDAR profile used for protocol investigation.
+Development work in:
 
-| Feature                     | Capability          | Protocol                                | Status           |
-| --------------------------- | ------------------- | --------------------------------------- | ---------------- |
-| AI recognition              | `ai_recognition`    | `getRecognization` / `setRecognization` | Fork implemented |
-| Animal protection           | `animal_protection` | `getAnimProtect` / `setAnimProtect`     | Fork implemented |
-| Smart mowing with avoidance | `humanoid_ai`       | `getHumanoidAI` / `setHumanoidAI`       | Fork implemented |
-| Narrow passage adaptation   | `narrow_adapt`      | `getNarrowAdapt` / `setNarrowAdapt`     | Fork implemented |
-| Rain sensor/delay           | `rain_delay`        | `setRainDelay` / `onRainDelay`          | Fork implemented |
-| Lifted-alarm volume         | `fall_volume`       | `getVolume` / `setVolume`               | Fork implemented |
+- [`PR #1767`](https://github.com/DeebotUniverse/client.py/pull/1767)
+- [`PR #1768`](https://github.com/DeebotUniverse/client.py/pull/1768)
 
-The same branch also adds:
+adds a zone-specific setting capability:
 
 ```text
-ProtectStateEvent
+settings.area_parameter
 ```
 
-but this is a runtime mower status rather than a configurable setting.
+for the researched:
+
+```text
+GOAT O1200 LiDAR
+hardware ID 2i0fns
+```
+
+The capability is conceptually:
+
+```python
+area_parameter=CapabilitySet(
+    AreaParameterEvent,
+    [GetAreaParameter()],
+    SetAreaParameter,
+)
+```
+
+Each area record contains:
+
+```text
+area_id
+mow_height_level
+cut_mode
+obstacle_height
+angle
+```
+
+Wire fields:
+
+```text
+areaID
+mowHeightLevel
+cutMode
+obstacleHeight
+angle
+```
+
+Detailed documentation:
+
+**[O1200 area parameters](area-parameters.md)**
+
+Status:
+
+**Fork implemented / Python tested / Protocol observed**
+
+---
+
+# Cutting height
+
+For the O1200 development implementation, cutting height is no longer an unknown protocol area.
+
+It is represented by:
+
+```text
+mowHeightLevel
+```
+
+and normalised as:
+
+```text
+mow_height_level
+```
+
+inside:
+
+```text
+AreaParameter
+```
+
+This is a **zone-specific** value associated with:
+
+```text
+areaID
+```
+
+Status:
+
+**Protocol observed / Fork implemented / Python tested**
+
+## Remaining limitation
+
+The complete mapping from raw level to physical/user-facing height is not yet fully documented.
+
+Do not automatically interpret:
+
+```text
+mowHeightLevel = 10
+```
+
+as:
+
+```text
+10 mm
+```
+
+without independent evidence.
+
+Remaining research includes:
+
+- valid range
+- physical unit
+- level-to-height mapping
+- model differences
+
+---
+
+# Zone-specific cut mode
+
+The O1200 area-parameter protocol contains:
+
+```text
+cutMode
+```
+
+normalised as:
+
+```text
+cut_mode
+```
+
+Status:
+
+**Protocol observed / Fork implemented / Python tested**
+
+This means a raw zone-specific cut-mode field is mapped.
+
+However, the complete mapping between integer values and official app labels is still incomplete.
+
+Do not automatically equate:
+
+```text
+cutMode
+```
+
+with the generic:
+
+```text
+efficiency_mode
+```
+
+capability.
+
+They may represent different concepts or different device generations.
+
+---
+
+# Zone-specific obstacle height
+
+The O1200 area-parameter protocol contains:
+
+```text
+obstacleHeight
+```
+
+normalised as:
+
+```text
+obstacle_height
+```
+
+Status:
+
+**Protocol observed / Fork implemented / Python tested**
+
+This is distinct from the separate boolean/AI settings:
+
+```text
+true_detect
+ai_recognition
+humanoid_ai
+narrow_adapt
+animal_protection
+```
+
+The exact user-facing meaning and physical unit of `obstacleHeight` remain to be established.
+
+---
+
+# Zone-specific angle
+
+The O1200 area-parameter record contains:
+
+```text
+angle
+```
+
+associated with a specific:
+
+```text
+areaID
+```
+
+Observed/test values include examples such as:
+
+```text
+0
+136
+180
+```
+
+Status:
+
+**Protocol observed / Fork implemented / Python tested**
+
+This should be distinguished from the upstream global:
+
+```text
+settings.cut_direction
+```
+
+until their exact relationship has been established.
+
+Possible relationships include global default versus per-zone override or model-generation differences.
+
+---
+
+# Complete-tuple write behaviour
+
+`SetAreaParameter` writes:
+
+```text
+areaID
+mowHeightLevel
+cutMode
+obstacleHeight
+angle
+```
+
+together.
+
+Therefore integrations exposing individual controls should preserve the current values of fields that the user is not changing.
+
+Recommended pattern:
+
+```text
+AreaParameterEvent
+      │
+      ▼
+find target area
+      │
+      ▼
+copy full tuple
+      │
+      ▼
+change one field
+      │
+      ▼
+SetAreaParameter
+      │
+      ▼
+onAreaParameter confirms state
+```
+
+This is an important design constraint for future Home Assistant support.
 
 ---
 
@@ -136,12 +363,6 @@ Capability:
 
 ```text
 settings.advanced_mode
-```
-
-Event:
-
-```text
-AdvancedModeEvent
 ```
 
 Commands:
@@ -161,9 +382,7 @@ Status:
 
 **Upstream implemented**
 
-The protocol name does not by itself fully explain the mower-specific user-facing meaning of "advanced mode".
-
-Its behaviour should therefore be described from ECOVACS app correlation or physical testing rather than inferred only from the command name.
+The exact mower-specific user-facing meaning should be correlated with the app rather than inferred from the name alone.
 
 ---
 
@@ -173,12 +392,6 @@ Capability:
 
 ```text
 settings.border_switch
-```
-
-Event:
-
-```text
-BorderSwitchEvent
 ```
 
 Commands:
@@ -198,24 +411,16 @@ Status:
 
 **Upstream implemented**
 
-This is one of the settings likely associated with mower border/edge behaviour.
-
-The exact relationship between the protocol term `borderSwitch` and the wording presented by different ECOVACS GOAT app versions should be documented from device observation.
+The feature is associated with border/edge behaviour, but exact app wording can vary.
 
 ---
 
-# Cutting direction
+# Global cutting direction
 
 Capability:
 
 ```text
 settings.cut_direction
-```
-
-Event:
-
-```text
-CutDirectionEvent
 ```
 
 Commands:
@@ -225,21 +430,33 @@ GetCutDirection
 SetCutDirection
 ```
 
-The event contains:
+Event:
 
-```python
-angle: int
+```text
+CutDirectionEvent
 ```
 
-Unlike the simple on/off settings, cutting direction is represented as a numeric angle.
+Type:
+
+```text
+angle
+```
 
 Status:
 
 **Upstream implemented**
 
-This is distinct from cutting height.
+Do not confuse this with:
 
-No cutting-height capability has been identified in the reviewed upstream implementation.
+```text
+mowHeightLevel
+```
+
+and do not yet assume it is identical to the O1200 zone-specific:
+
+```text
+AreaParameter.angle
+```
 
 ---
 
@@ -258,21 +475,17 @@ GetChildLock
 SetChildLock
 ```
 
-Event:
-
-```text
-ChildLockEvent
-```
-
-Type:
-
-```text
-boolean
-```
-
 Status:
 
 **Upstream implemented**
+
+This should not automatically be equated with:
+
+```text
+ProtectStateEvent.is_locked
+```
+
+without protocol correlation.
 
 ---
 
@@ -291,25 +504,15 @@ GetMoveUpWarning
 SetMoveUpWarning
 ```
 
-Event:
+Development message support also includes:
 
 ```text
-MoveUpWarningEvent
-```
-
-Type:
-
-```text
-boolean
+onMoveupWarning
 ```
 
 Status:
 
-**Upstream implemented**
-
-The protocol name is retained here.
-
-Mower-specific UI wording should be based on observed ECOVACS behaviour.
+**Upstream setting / development push refinement**
 
 ---
 
@@ -328,21 +531,11 @@ GetCrossMapBorderWarning
 SetCrossMapBorderWarning
 ```
 
-Event:
-
-```text
-CrossMapBorderWarningEvent
-```
-
-Type:
-
-```text
-boolean
-```
-
 Status:
 
 **Upstream implemented**
+
+Exact mower-facing semantics should remain evidence-based.
 
 ---
 
@@ -361,23 +554,11 @@ GetSafeProtect
 SetSafeProtect
 ```
 
-Event:
-
-```text
-SafeProtectEvent
-```
-
-Type:
-
-```text
-boolean
-```
-
 Status:
 
 **Upstream implemented**
 
-The protocol name should not automatically be interpreted as a specific physical safety feature without additional device correlation.
+The protocol name is not sufficient to define every physical safety behaviour.
 
 ---
 
@@ -392,178 +573,46 @@ settings.true_detect
 Commands:
 
 ```text
-GetTrueDetect
-SetTrueDetect
-```
-
-Event:
-
-```text
-TrueDetectEvent
-```
-
-Type:
-
-```text
-boolean
+getTrueDetect
+setTrueDetect
 ```
 
 Status:
 
 **Upstream implemented**
 
-`TrueDetect` is an ECOVACS protocol/product term.
+All reviewed GOAT hardware profiles expose this setting.
 
-Its exact mower-specific relationship to obstacle detection and avoidance should be documented separately from AI-recognition settings.
+Its precise relationship to newer O1200 AI/avoidance settings remains incompletely mapped.
 
 ---
 
-# System volume
+# Development AI and navigation settings
+
+The O1200 development work adds several separate settings.
+
+## AI recognition
 
 Capability:
 
 ```text
-settings.volume
+ai_recognition
 ```
 
 Commands:
-
-```text
-GetVolume
-SetVolume
-```
-
-Event:
-
-```text
-VolumeEvent
-```
-
-Upstream already supports general volume.
-
-The mower development branch refines O1200 volume handling by explicitly using:
-
-```text
-type = "sys"
-total = 10
-```
-
-when changing the normal system-volume channel.
-
-Conceptual request:
-
-```json
-{
-  "type": "sys",
-  "total": 10,
-  "volume": 5
-}
-```
-
-The requested volume is supplied by the caller.
-
-Status:
-
-**Upstream implemented / mower handling refined in fork**
-
----
-
-# Lifted-alarm volume
-
-The mower development branch identifies a second volume channel associated with the alarm used when the mower is lifted.
-
-Capability:
-
-```text
-settings.fall_volume
-```
-
-Event:
-
-```text
-FallVolumeEvent
-```
-
-The same ECOVACS protocol commands are used:
-
-```text
-getVolume
-setVolume
-```
-
-but the channel is:
-
-```text
-fall
-```
-
-A write uses a structure equivalent to:
-
-```json
-{
-  "type": "fall",
-  "total": 10,
-  "volume": 5
-}
-```
-
-The development parser can obtain the value in two observed representations:
-
-```text
-type = "fall"
-```
-
-or as a:
-
-```text
-fallVolume
-```
-
-field included in a general volume response.
-
-Status:
-
-**Fork implemented**
-
----
-
-# AI recognition
-
-The development branch introduces:
-
-```text
-settings.ai_recognition
-```
-
-Event:
-
-```text
-AiRecognitionEvent
-```
-
-Commands:
-
-```text
-GetRecognization
-SetRecognization
-```
-
-Protocol names:
 
 ```text
 getRecognization
 setRecognization
 ```
 
-Note that `Recognization` is the spelling used by the ECOVACS protocol and is therefore preserved in the command class names.
-
-The setting is represented as:
+Push:
 
 ```text
-boolean
+onRecognization
 ```
 
-with the protocol state stored in:
+Protocol field:
 
 ```text
 state
@@ -571,143 +620,104 @@ state
 
 Status:
 
-**Fork implemented**
+**Fork implemented / Python tested**
 
-This feature is documented in more detail in the obstacle/AI documentation because its exact relationship with obstacle recognition requires app/device correlation.
+## Humanoid AI / smart mowing with avoidance
 
----
-
-# Smart mowing with avoidance
-
-The development branch introduces:
+Capability:
 
 ```text
-settings.humanoid_ai
-```
-
-Event:
-
-```text
-HumanoidAiEvent
+humanoid_ai
 ```
 
 Commands:
-
-```text
-GetHumanoidAi
-SetHumanoidAi
-```
-
-Protocol names:
 
 ```text
 getHumanoidAI
 setHumanoidAI
 ```
 
-The implementation describes this feature as:
+Push:
+
+```text
+onHumanoidAI
+```
+
+Protocol field:
+
+```text
+enable
+```
+
+Implementation description:
 
 ```text
 Smart mowing with avoidance
 ```
 
-Type:
-
-```text
-boolean
-```
-
 Status:
 
-**Fork implemented**
+**Fork implemented / Python tested**
 
-The unusual protocol name `HumanoidAI` should not be interpreted literally without further ECOVACS-specific context.
-
-The user-facing mower feature should be documented according to observed app behaviour.
-
----
-
-# Narrow passage adaptation
+## Narrow passage adaptation
 
 Capability:
 
 ```text
-settings.narrow_adapt
-```
-
-Event:
-
-```text
-NarrowAdaptEvent
+narrow_adapt
 ```
 
 Commands:
-
-```text
-GetNarrowAdapt
-SetNarrowAdapt
-```
-
-Protocol names:
 
 ```text
 getNarrowAdapt
 setNarrowAdapt
 ```
 
-The setting uses the protocol field:
+Push:
+
+```text
+onNarrowAdapt
+```
+
+Protocol field:
 
 ```text
 state
 ```
 
-and is represented in the client as a boolean enable/disable capability.
-
 Status:
 
-**Fork implemented**
+**Fork implemented / Python tested**
 
-The implementation describes it as:
+Detailed documentation:
 
-```text
-Narrow passage adaptation
-```
-
-This is likely relevant to navigation through constrained lawn passages, but exact physical behaviour should be documented from mower testing.
+[Obstacle and AI](obstacle-and-ai.md)
 
 ---
 
 # Animal protection
 
-Animal protection is more complex than a normal boolean setting.
-
 Capability:
 
 ```text
-settings.animal_protection
-```
-
-Event:
-
-```text
-AnimalProtectionEvent
+animal_protection
 ```
 
 Commands:
-
-```text
-GetAnimalProtection
-SetAnimalProtection
-```
-
-Protocol names:
 
 ```text
 getAnimProtect
 setAnimProtect
 ```
 
-The complete configuration contains:
+Push:
+
+```text
+onAnimProtect
+```
+
+Configuration contains:
 
 ```text
 enabled
@@ -715,75 +725,26 @@ start
 end
 ```
 
-Conceptually:
-
-```text
-Animal protection
-├── enabled
-├── start time
-└── end time
-```
-
-A protocol write is equivalent to:
-
-```json
-{
-  "enable": 1,
-  "start": "20:00",
-  "end": "08:00"
-}
-```
-
-The actual times are supplied by the caller.
-
-## Time format
-
-The implementation normalises device times to:
-
-```text
-HH:MM
-```
-
-For example:
-
-```text
-8:00
-```
-
-becomes:
-
-```text
-08:00
-```
-
-and:
-
-```text
-7:05
-```
-
-becomes:
-
-```text
-07:05
-```
-
-This makes the exposed event format consistent even if the mower does not zero-pad the value.
+The time values are normalised for the client representation.
 
 Status:
 
-**Fork implemented**
+**Fork implemented / Python tested**
 
-The feature is particularly important because it demonstrates that some mower protection options are schedules rather than simple on/off switches.
+This configuration should be kept separate from runtime:
+
+```text
+ProtectStateEvent.is_anim_protect
+```
 
 ---
 
-# Rain sensor and post-rain delay
+# Rain configuration
 
 Capability:
 
 ```text
-settings.rain_delay
+rain_delay
 ```
 
 Event:
@@ -792,176 +753,97 @@ Event:
 RainDelayEvent
 ```
 
-Set command:
-
-```text
-SetRainDelay
-```
-
-Protocol write:
+Setter:
 
 ```text
 setRainDelay
 ```
 
-Reported state:
+Push:
 
 ```text
 onRainDelay
 ```
 
-The event contains:
-
-```python
-enabled: bool
-delay: int
-```
-
-Conceptually:
+Fields:
 
 ```text
-Rain configuration
-├── sensor/protection enabled
-└── post-rain delay in minutes
+enabled
+delay
 ```
 
-The write payload is equivalent to:
-
-```json
-{
-  "enable": 1,
-  "delay": 120
-}
-```
-
-## Supported delay values
-
-The development implementation accepts:
-
-```text
-0
-30
-60
-90
-120
-150
-180
-210
-240
-270
-300
-```
-
-minutes.
-
-In other words:
+Accepted development values:
 
 ```text
 0–300 minutes
-in 30-minute increments
+30-minute increments
 ```
 
-Unsupported values are rejected by the client.
+The current O1200 development capability has no explicit refresh GET assigned and relies on the push state.
 
-For example:
+Status:
+
+**Fork implemented / Python tested / Protocol observed**
+
+Detailed documentation:
+
+[Rain and protection](rain-and-protection.md)
+
+---
+
+# Volume
+
+The common GOAT profiles expose system volume.
+
+Development work distinguishes system and lifted/fall warning volume through the shared `setVolume`/`getVolume` family.
+
+## System volume
+
+Capability:
 
 ```text
-45 minutes
+volume
 ```
 
-is not a valid value in the current implementation.
-
-## State reporting
-
-Unlike most normal settings in the capability model, the O1200 development capability currently has no explicit GET command:
-
-```python
-rain_delay=CapabilitySet(
-    RainDelayEvent,
-    [],
-    SetRainDelay,
-)
-```
-
-Instead, resulting state is reported through:
+Typical development range:
 
 ```text
-onRainDelay
-```
-
-which generates:
-
-```text
-RainDelayEvent
+0–10
 ```
 
 Status:
 
-**Fork implemented / protocol observed**
+**Upstream implemented**
 
-Rain behaviour is documented in greater detail in `rain-and-protection.md`.
+## Lifted-alarm volume
+
+Capability:
+
+```text
+fall_volume
+```
+
+Protocol channel/type:
+
+```text
+fall
+```
+
+Status:
+
+**Fork implemented / Python tested**
 
 ---
 
-# Configuration versus active protection
+# Runtime protection state is not a setting
 
-The rain configuration and current rain-protection state are different concepts.
-
-Configuration:
-
-```text
-RainDelayEvent
-├── enabled
-└── delay
-```
-
-Runtime protection:
-
-```text
-ProtectStateEvent
-├── is_rain_protect
-└── is_rain_delay
-```
-
-This distinction is important.
-
-For example:
-
-```text
-Rain protection enabled
-```
-
-does not mean:
-
-```text
-Mower is currently stopped because it is raining
-```
-
-The first is configuration.
-
-The second is runtime state.
-
----
-
-# Runtime `ProtectStateEvent`
-
-The development branch introduces a top-level:
-
-```text
-protect_state
-```
-
-capability using:
+Development work adds:
 
 ```text
 ProtectStateEvent
 ```
 
-This is **not writable**.
-
-It represents boolean protection states pushed by the mower.
-
-The event contains:
+with fields:
 
 ```text
 is_anim_protect
@@ -973,438 +855,132 @@ is_pin_code
 is_prepare_data_success
 ```
 
-These values originate from:
+This is runtime state.
+
+It should not be represented as user-editable switches simply because the values are booleans.
+
+For example:
 
 ```text
-onProtectState
+is_rain_protect
 ```
 
-and are intentionally preserved without over-interpreting unknown transitions.
-
-## Known rain observation
-
-During actual-rain protocol observation, the implementation notes the following observed state:
+describes a reported condition, while:
 
 ```text
-isRainProtect = 1
-isRainDelay = 0
+rain_delay.enabled
 ```
 
-This provides direct evidence that:
-
-```text
-isRainProtect
-```
-
-can represent an active rain-protection condition.
-
-The meaning of every possible:
-
-```text
-isRainDelay
-```
-
-transition should not be inferred until separately observed.
-
-Status:
-
-**Fork implemented / protocol observed**
+is configuration.
 
 ---
 
-# Animal configuration versus animal protection state
+# Settings that still require protocol research
 
-The same configuration/runtime distinction applies to animal protection.
+The status has changed after the area-parameter PRs.
 
-Configuration:
-
-```text
-AnimalProtectionEvent
-├── enabled
-├── start
-└── end
-```
-
-Runtime state:
+The following are **not** correctly described as completely unmapped for O1200 anymore:
 
 ```text
-ProtectStateEvent.is_anim_protect
+cutting height
+zone cut mode
+zone obstacle-height parameter
+zone mowing angle
 ```
 
-The two should not be merged into one boolean.
+Their raw protocol fields are known.
 
-Conceptually:
+Remaining semantic mapping work includes:
 
 ```text
-Animal protection configured
-          │
-          ▼
-enabled + schedule
+mowHeightLevel → physical height/unit
+cutMode → app label/behaviour
+obstacleHeight → app label/unit/physical effect
+AreaParameter.angle ↔ global cut_direction relationship
 ```
 
-versus:
+A major mower setting that still remains unmapped is:
 
 ```text
-Animal protection currently active
-          │
-          ▼
-is_anim_protect
+mowing speed
 ```
 
-This distinction will matter when exposing the feature in Home Assistant.
+Other important gaps include scheduling and additional global mower behaviour not yet represented by known capabilities.
 
 ---
 
-# O1200 development profile
+# Model scope
 
-The development branch currently connects the newly mapped mower settings specifically to:
+The newly researched area-parameter and AI/rain settings are currently O1200-focused.
 
-```text
-GOAT O1200 LiDAR
-hardware ID: 2i0fns
-```
-
-The additional capability wiring includes:
+Do not assume another GOAT supports them because:
 
 ```text
-ai_recognition
-animal_protection
-humanoid_ai
-narrow_adapt
-rain_delay
-fall_volume
-protect_state
+the product name is similar
 ```
 
-This provides strong implementation evidence for the researched O1200.
+or:
 
-It does **not** automatically prove that the same protocol commands work unchanged on:
+```text
+the app exposes a similar-looking option
+```
 
-* GOAT G1
-* GOAT A1600 RTK
-* GOAT A3000 LiDAR Pro
-* GOAT O500 Panorama
-
-Support on those models should be added only when supported by protocol evidence or physical testing.
+Enable model capabilities from evidence.
 
 ---
 
-# Capability summary
+# Integration guidance
 
-| Feature                   | Event                        | Get/source                 | Set                        | Type           | Current status |
-| ------------------------- | ---------------------------- | -------------------------- | -------------------------- | -------------- | -------------- |
-| Advanced mode             | `AdvancedModeEvent`          | `GetAdvancedMode`          | `SetAdvancedMode`          | bool           | Upstream       |
-| Border switch             | `BorderSwitchEvent`          | `GetBorderSwitch`          | `SetBorderSwitch`          | bool           | Upstream       |
-| Cutting direction         | `CutDirectionEvent`          | `GetCutDirection`          | `SetCutDirection`          | int/angle      | Upstream       |
-| Child lock                | `ChildLockEvent`             | `GetChildLock`             | `SetChildLock`             | bool           | Upstream       |
-| Move-up warning           | `MoveUpWarningEvent`         | `GetMoveUpWarning`         | `SetMoveUpWarning`         | bool           | Upstream       |
-| Cross-map border warning  | `CrossMapBorderWarningEvent` | `GetCrossMapBorderWarning` | `SetCrossMapBorderWarning` | bool           | Upstream       |
-| Safe protect              | `SafeProtectEvent`           | `GetSafeProtect`           | `SetSafeProtect`           | bool           | Upstream       |
-| TrueDetect                | `TrueDetectEvent`            | `GetTrueDetect`            | `SetTrueDetect`            | bool           | Upstream       |
-| System volume             | `VolumeEvent`                | `GetVolume`                | `SetVolume`                | int            | Upstream       |
-| AI recognition            | `AiRecognitionEvent`         | `GetRecognization`         | `SetRecognization`         | bool           | Fork           |
-| Animal protection         | `AnimalProtectionEvent`      | `GetAnimalProtection`      | `SetAnimalProtection`      | bool + times   | Fork           |
-| Smart mowing/avoidance    | `HumanoidAiEvent`            | `GetHumanoidAi`            | `SetHumanoidAi`            | bool           | Fork           |
-| Narrow passage adaptation | `NarrowAdaptEvent`           | `GetNarrowAdapt`           | `SetNarrowAdapt`           | bool           | Fork           |
-| Rain configuration        | `RainDelayEvent`             | `onRainDelay`              | `SetRainDelay`             | bool + minutes | Fork           |
-| Lifted-alarm volume       | `FallVolumeEvent`            | `GetVolume`                | `SetFallVolume`            | int            | Fork           |
-| Runtime protection        | `ProtectStateEvent`          | `onProtectState`           | —                          | state flags    | Fork           |
+Suggested high-level entity shapes are:
+
+| Capability/value | Likely integration representation |
+| --- | --- |
+| boolean `CapabilitySetEnable` | switch |
+| simple numeric setting | number |
+| known enum | select |
+| runtime boolean state | binary_sensor |
+| measurement | sensor |
+| scheduled time | time |
+| zone parameter tuple | action/service or carefully modelled per-zone controls |
+
+The O1200 area-parameter tuple should **not** be split into independent writable entities unless the implementation preserves unchanged sibling values when writing.
 
 ---
 
-# Settings not yet mapped
+# Current status summary
 
-Several mower features remain outside the reviewed upstream and development capability set.
-
-These should remain explicit research targets rather than being inferred from unrelated generic capabilities.
-
-## Cutting height
-
-No dedicated GOAT cutting-height capability has been identified in the reviewed source.
-
-Status:
-
-**Not yet mapped**
-
-A future implementation would require identifying:
-
-* protocol command
-* response/message
-* valid height range
-* physical unit
-* whether height changes are motorised on the model
-* model-specific supported values
-
----
-
-# Mowing efficiency / mowing mode
-
-No confirmed GOAT-specific capability for the app's mowing efficiency/mode control has been identified in the reviewed source.
-
-The shared client contains generic concepts such as:
-
-```text
-efficiency_mode
-```
-
-for other ECOVACS devices.
-
-The existence of that generic field does not prove that GOAT mower efficiency settings use the same protocol.
-
-Status:
-
-**Not yet mapped for GOAT**
+| Feature | Current status |
+| --- | --- |
+| Common GOAT settings | Upstream implemented |
+| Global cutting direction | Upstream implemented |
+| O1200 `area_parameter` | Fork implemented / tested |
+| O1200 `mowHeightLevel` | Protocol mapped / fork implemented |
+| O1200 `cutMode` | Protocol mapped / fork implemented |
+| O1200 `obstacleHeight` | Protocol mapped / fork implemented |
+| O1200 area `angle` | Protocol mapped / fork implemented |
+| Physical cutting-height mapping | Incomplete |
+| `cutMode` enum semantics | Incomplete |
+| `obstacleHeight` semantics/unit | Incomplete |
+| Mowing speed | Not mapped |
+| AI recognition | Fork implemented |
+| Humanoid AI | Fork implemented |
+| Narrow adaptation | Fork implemented |
+| Animal protection | Fork implemented |
+| Rain configuration | Fork implemented |
+| Lifted-alarm volume | Fork implemented |
+| Runtime protection state | Fork implemented, not a setting |
 
 ---
 
-# Mowing speed
-
-No dedicated GOAT mowing-speed capability has been identified in the reviewed implementation.
-
-Status:
-
-**Not yet mapped**
-
-If the ECOVACS app exposes multiple speed levels, their protocol representation should be captured before adding a client abstraction.
-
----
-
-# Additional obstacle behaviour
-
-Several related features now have protocol mappings:
-
-```text
-TrueDetect
-AI recognition
-Humanoid AI
-Narrow adapt
-```
-
-but their exact relationship with the different obstacle/AI options presented by the ECOVACS app still needs systematic mapping.
-
-These are therefore documented separately in:
-
-```text
-obstacle-and-ai.md
-```
-
----
-
-# Recommended documentation rule
-
-When a new mower setting is discovered, record at least:
-
-| Field         | Description                         |
-| ------------- | ----------------------------------- |
-| Feature       | User-facing meaning                 |
-| App wording   | Label used by ECOVACS app, if known |
-| Protocol name | ECOVACS command/message             |
-| Capability    | `deebot_client` capability          |
-| Event         | Normalised state event              |
-| Get command   | How state is retrieved              |
-| Set command   | How it is changed                   |
-| Payload       | Relevant fields                     |
-| Valid values  | Known allowed values                |
-| Model         | Mower where observed                |
-| Firmware      | Firmware where verified             |
-| Evidence      | Upstream/fork/protocol/device       |
-| Notes         | Unknowns or model differences       |
-
-This helps prevent a protocol name from being mistaken for a confirmed user-facing interpretation.
-
----
-
-# Model portability
-
-A mower setting should not automatically be enabled for every GOAT hardware profile simply because:
-
-* the command exists
-* another GOAT model supports it
-* the app displays a similar option
-* the devices share a capability framework
-
-A safer development flow is:
-
-```text
-Observe feature on model
-        │
-        ▼
-Capture protocol
-        │
-        ▼
-Implement parser/command
-        │
-        ▼
-Test payloads
-        │
-        ▼
-Test physical mower
-        │
-        ▼
-Enable hardware capability
-```
-
-This is especially important for settings that may depend on:
-
-* navigation technology
-* optional hardware
-* firmware generation
-* region
-* mower model
-* accessory configuration
-
----
-
-# Home Assistant considerations
-
-The different setting types naturally map to different integration controls.
-
-## Boolean settings
-
-Examples:
-
-```text
-advanced_mode
-border_switch
-child_lock
-true_detect
-ai_recognition
-humanoid_ai
-narrow_adapt
-```
-
-could map to switch-style entities.
-
-## Numeric settings
-
-Examples:
-
-```text
-volume
-fall_volume
-cut_direction
-```
-
-may map to numbers or selectors depending on valid ranges.
-
-## Structured settings
-
-Animal protection contains:
-
-```text
-enabled
-start
-end
-```
-
-and therefore cannot be represented accurately by a single switch alone.
-
-## Rain configuration
-
-Rain configuration combines:
-
-```text
-enabled
-delay
-```
-
-and likewise requires more than one control if the full feature is exposed.
-
-## Runtime states
-
-Values in:
-
-```text
-ProtectStateEvent
-```
-
-should normally be sensors/binary sensors rather than writable switches.
-
----
-
-# Evidence summary
-
-## Upstream implemented
-
-The reviewed upstream mower profiles expose:
-
-* advanced mode
-* border switch
-* cutting direction
-* child lock
-* move-up warning
-* cross-map border warning
-* safe protect
-* TrueDetect
-* volume
-
-## Fork implemented
-
-The O1200 development profile additionally exposes:
-
-* AI recognition
-* animal protection
-* smart mowing with avoidance / Humanoid AI
-* narrow passage adaptation
-* rain sensor configuration and delay
-* lifted-alarm volume
-* runtime protection state
-
-## Protocol-observed details represented by the fork
-
-Known protocol structures include:
-
-* scheduled animal protection
-* AI recognition state
-* Humanoid AI enable state
-* narrow-passage adaptation state
-* rain enable state
-* post-rain delay
-* separate system/fall volume channels
-* pushed runtime protection flags
-
-## Not yet mapped
-
-Important remaining mower settings include:
-
-* cutting height
-* GOAT-specific mowing efficiency/mode
-* mowing speed
-* any additional global mowing behaviour not yet correlated to protocol traffic
-
-These should be investigated separately.
-
----
-
-# Relevant source files
-
-## Upstream
-
-* [`deebot_client/capabilities.py`](https://github.com/DeebotUniverse/client.py/blob/dev/deebot_client/capabilities.py)
-* [`deebot_client/hardware/2i0fns.py`](https://github.com/DeebotUniverse/client.py/blob/dev/deebot_client/hardware/2i0fns.py)
-
-## Development branch
-
-* [`deebot_client/capabilities.py`](https://github.com/monsivar/client.py/blob/feature/ecovacs-mower-settings/deebot_client/capabilities.py)
-* [`deebot_client/hardware/2i0fns.py`](https://github.com/monsivar/client.py/blob/feature/ecovacs-mower-settings/deebot_client/hardware/2i0fns.py)
-* [`deebot_client/commands/json/animal_protection.py`](https://github.com/monsivar/client.py/blob/feature/ecovacs-mower-settings/deebot_client/commands/json/animal_protection.py)
-* [`deebot_client/commands/json/humanoid_ai.py`](https://github.com/monsivar/client.py/blob/feature/ecovacs-mower-settings/deebot_client/commands/json/humanoid_ai.py)
-* [`deebot_client/commands/json/narrow_adapt.py`](https://github.com/monsivar/client.py/blob/feature/ecovacs-mower-settings/deebot_client/commands/json/narrow_adapt.py)
-* [`deebot_client/commands/json/recognization.py`](https://github.com/monsivar/client.py/blob/feature/ecovacs-mower-settings/deebot_client/commands/json/recognization.py)
-* [`deebot_client/commands/json/rain_delay.py`](https://github.com/monsivar/client.py/blob/feature/ecovacs-mower-settings/deebot_client/commands/json/rain_delay.py)
-* [`deebot_client/commands/json/volume.py`](https://github.com/monsivar/client.py/blob/feature/ecovacs-mower-settings/deebot_client/commands/json/volume.py)
-* [`deebot_client/events/protect_state.py`](https://github.com/monsivar/client.py/blob/feature/ecovacs-mower-settings/deebot_client/events/protect_state.py)
-* [`deebot_client/events/rain_delay.py`](https://github.com/monsivar/client.py/blob/feature/ecovacs-mower-settings/deebot_client/events/rain_delay.py)
-* [`deebot_client/messages/json/protect_state.py`](https://github.com/monsivar/client.py/blob/feature/ecovacs-mower-settings/deebot_client/messages/json/protect_state.py)
-* [`deebot_client/messages/json/rain_delay.py`](https://github.com/monsivar/client.py/blob/feature/ecovacs-mower-settings/deebot_client/messages/json/rain_delay.py)
-
-## Related documentation
-
-* [Supported models](supported-models.md)
-* [Capability architecture](capabilities.md)
-* [Mowing control](mowing-control.md)
-* [Zone and area mowing](zones-and-areas.md)
-* [Mowing progress and statistics](progress-and-statistics.md)
-* Rain and protection *(next)*
-* Obstacle and AI features *(planned)*
-* Home Assistant integration *(planned)*
+# Related documentation
+
+- [O1200 area parameters](area-parameters.md)
+- [Supported models](supported-models.md)
+- [Capabilities](capabilities.md)
+- [Zones and areas](zones-and-areas.md)
+- [Rain and protection](rain-and-protection.md)
+- [Obstacle and AI](obstacle-and-ai.md)
+- [Protocol reference](protocol-reference.md)
+- [Home Assistant](home-assistant.md)
+- [Testing status](testing-status.md)
+- [Known limitations](known-limitations.md)
