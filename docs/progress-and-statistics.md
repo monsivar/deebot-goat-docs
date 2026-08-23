@@ -1,42 +1,68 @@
 # Mowing progress and statistics
 
-This page documents mowing statistics and job-progress information for ECOVACS GOAT mowers in [`DeebotUniverse/client.py`](https://github.com/DeebotUniverse/client.py).
+This page documents mowing statistics and current-job progress information for ECOVACS GOAT mowers in [`DeebotUniverse/client.py`](https://github.com/DeebotUniverse/client.py), together with the mower-specific interpretation used by the Home Assistant development work.
 
 Last reviewed against:
 
-* upstream `DeebotUniverse/client.py` `dev`
-* development branch `feature/mower-stats-progress`
+- upstream `DeebotUniverse/client.py` `dev`
+- `monsivar/client.py` branch `feature/mower-stats-progress`
+- `monsivar/core` branch `feature/ecovacs-mower-progress`
 
 Date: **2026-08-23**
 
 ## Overview
 
-There are two related but different concepts:
+There are several related but distinct concepts:
 
-1. **statistics** describing mowing activity
-2. **progress** describing how far the current mowing job has advanced
+1. raw statistics reported by ECOVACS
+2. current-job progress derived from those statistics
+3. cumulative mower statistics
+4. an estimated mowing duration shown by the ECOVACS app
+5. the model-specific duration interpretation used by the Home Assistant development branch
 
-The upstream client already supports several statistics events.
+These should not be collapsed into one concept.
 
-Additional GOAT protocol observations show that the statistics payload can also contain:
+The reviewed upstream client already exposes general statistics. Development work adds the GOAT-specific:
 
 ```text
 mowedArea
 ```
 
-which can be used to represent the part of the current target area that has already been mowed.
-
-Support for this field has been implemented in the development branch:
+field as:
 
 ```text
-feature/mower-stats-progress
+StatsEvent.mowed_area
 ```
 
-but is not part of the reviewed upstream `dev` baseline.
+and adds a model capability flag:
+
+```text
+mowing_job_progress
+```
+
+which allows a consumer such as Home Assistant to apply mower-job-specific semantics only on hardware profiles for which those semantics have been explicitly enabled.
 
 ---
 
-# Capability architecture
+# Evidence terminology
+
+This page uses the following status terms.
+
+| Status | Meaning |
+| --- | --- |
+| **Upstream implemented** | Present in reviewed upstream `DeebotUniverse/client.py` |
+| **Fork implemented** | Present in a development branch but not the reviewed upstream baseline |
+| **Python tested** | Covered by automated client tests |
+| **HA implemented** | Implemented in the Home Assistant development branch |
+| **HA tested** | Covered by Home Assistant automated tests |
+| **Protocol observed** | Relevant field/message observed in real GOAT communication |
+| **App observed** | Behaviour/value observed in the official ECOVACS app |
+| **Derived** | Calculated from other values rather than directly supplied as a dedicated protocol field |
+| **Unverified** | Some important semantics still require confirmation |
+
+---
+
+# Statistics capability
 
 Mower statistics are exposed through:
 
@@ -44,7 +70,9 @@ Mower statistics are exposed through:
 Capabilities.stats
 ```
 
-using:
+using the shared capability model.
+
+The reviewed upstream shape is conceptually:
 
 ```python
 CapabilityStats(
@@ -54,37 +82,47 @@ CapabilityStats(
 )
 ```
 
-The generic names originate from the shared DEEBOT client.
+The progress development branch extends this concept with:
 
-For GOAT devices they should be interpreted approximately as:
-
-| Generic capability | GOAT interpretation              |
-| ------------------ | -------------------------------- |
-| `stats.clean`      | Current/recent mowing statistics |
-| `stats.report`     | Pushed job statistics/status     |
-| `stats.total`      | Cumulative mower statistics      |
-
-The reviewed GOAT hardware profiles expose all three categories.
-
----
-
-# Statistics events
-
-The common capability system uses three statistics event types:
-
-```text
-StatsEvent
-ReportStatsEvent
-TotalStatsEvent
+```python
+mowing_job_progress: bool = False
 ```
 
-They serve different purposes.
+This flag is not itself protocol data.
+
+It describes whether the hardware profile is known to use the common statistics event with mower-job-progress semantics.
+
+Conceptually:
+
+```text
+StatsEvent exists
+      │
+      ▼
+mowing_job_progress?
+   ┌──┴──┐
+   │     │
+  no    yes
+   │     │
+   ▼     ▼
+generic  mower-progress
+stats    interpretation
+```
+
+The researched O1200 development profile sets:
+
+```python
+mowing_job_progress=True
+```
+
+Status:
+
+**Fork implemented**
 
 ---
 
 # `StatsEvent`
 
-In current upstream `dev`, `StatsEvent` contains:
+The reviewed upstream event contains:
 
 ```python
 area: int | None
@@ -101,54 +139,33 @@ StatsEvent
 └── type
 ```
 
-The values are populated by the ECOVACS:
+The values can be populated from:
 
 ```text
 getStats
 ```
 
-response and by statistics messages where applicable.
+and relevant pushed statistics messages.
 
-## Important unit warning
-
-The raw protocol fields should not automatically be assigned human-readable units solely from their names.
-
-For example:
-
-```text
-area
-time
-```
-
-are protocol values.
-
-Their physical units and exact mower-specific semantics should be established from protocol observations and device behaviour before being presented as square metres, seconds, minutes, or another unit.
-
-This documentation therefore preserves raw field names unless the unit is independently confirmed.
+The field names are shared with other ECOVACS device types and should not automatically be assigned mower-specific semantics without model evidence.
 
 ---
 
-# `GetStats`
+# `getStats`
 
-Current upstream implements:
+Python command:
 
 ```text
 GetStats
 ```
 
-with ECOVACS command name:
+ECOVACS command:
 
 ```text
 getStats
 ```
 
-The response parser creates:
-
-```text
-StatsEvent
-```
-
-from:
+The upstream parser exposes:
 
 ```text
 area
@@ -156,74 +173,29 @@ time
 type
 ```
 
-Conceptually:
+through `StatsEvent`.
 
-```text
-getStats
-   │
-   ▼
-ECOVACS response
-   │
-   ├── area
-   ├── time
-   └── type
-        │
-        ▼
-    StatsEvent
-```
+Status:
+
+**Upstream implemented**
 
 ---
 
 # GOAT `mowedArea`
 
-During GOAT protocol investigation, an additional statistics field was identified:
+GOAT protocol investigation identified an additional statistics field:
 
 ```text
 mowedArea
 ```
 
-This field is not currently represented by the reviewed upstream `StatsEvent`.
-
-A development implementation adds:
-
-```python
-mowed_area: int | None
-```
-
-as an optional keyword field.
-
-The extended event therefore becomes conceptually:
-
-```text
-StatsEvent
-├── area
-├── time
-├── type
-└── mowed_area
-```
-
-The Python name follows normal snake-case conventions:
-
-```text
-mowedArea   → protocol
-mowed_area  → Python
-```
-
-Status:
-
-**Fork implemented**
-
----
-
-# Development implementation
-
-In:
+The development branch:
 
 ```text
 feature/mower-stats-progress
 ```
 
-the event is extended with:
+extends `StatsEvent` with:
 
 ```python
 mowed_area: int | None = field(
@@ -232,73 +204,41 @@ mowed_area: int | None = field(
 )
 ```
 
-Making the field optional is important for backwards compatibility.
-
-Existing devices and messages that do not provide:
+The wire-to-Python mapping is:
 
 ```text
 mowedArea
+    │
+    ▼
+mowed_area
 ```
 
-can still produce a normal `StatsEvent`.
+Making the field optional preserves compatibility with devices that do not report it.
 
-Conceptually:
+Status:
 
-```text
-Device without mowedArea
-       │
-       ▼
-mowed_area = None
-```
+**Fork implemented / Protocol observed / Python tested**
 
-while a GOAT payload containing the field can produce:
+Strongest current model evidence:
 
 ```text
-mowed_area = <raw protocol value>
+GOAT O1200 LiDAR
 ```
 
 ---
 
 # Parsing `mowedArea`
 
-The development branch extends both relevant statistics paths.
+The development implementation parses the field from both:
 
-## `GetStats` response
-
-The parser adds:
-
-```python
-mowed_area=data.get("mowedArea")
+```text
+getStats
 ```
 
-to the generated `StatsEvent`.
-
-## `onStats` message
-
-The mower may also provide statistics through:
+and:
 
 ```text
 onStats
-```
-
-The development parser likewise extracts:
-
-```text
-mowedArea
-```
-
-from this message.
-
-This means the field can be represented whether statistics arrive as:
-
-```text
-explicit getStats response
-```
-
-or:
-
-```text
-onStats message
 ```
 
 Conceptually:
@@ -310,14 +250,16 @@ getStats response ─────┐
                    StatsEvent
                        ▲
                        │
-onStats message ───────┘
+onStats push ──────────┘
 ```
 
----
+with:
 
-# Test coverage
+```text
+mowedArea → StatsEvent.mowed_area
+```
 
-The development branch includes a test using the following example statistics payload:
+A parser test uses a payload equivalent to:
 
 ```json
 {
@@ -327,306 +269,387 @@ The development branch includes a test using the following example statistics pa
 }
 ```
 
-The expected client event is:
+and expects the value to be preserved in the normalised event.
 
-```python
-StatsEvent(
-    area=2889500,
-    time=11269,
-    type=None,
-    mowed_area=1005475,
-)
-```
+The raw example should be treated as a parser fixture rather than a universal protocol-unit specification.
 
-This verifies that:
+---
+
+# Current-job area
+
+For hardware profiles declaring:
 
 ```text
-mowedArea
+mowing_job_progress=True
 ```
 
-is preserved by the parser and exposed through:
+the Home Assistant development branch uses:
 
 ```text
 StatsEvent.mowed_area
 ```
 
-The example should be treated as a parser test fixture.
+as the current:
 
-Raw numeric values should not be converted into physical units without separate unit verification.
+```text
+Area mowed
+```
 
----
+value.
 
-# Deriving mowing progress
+This is intentionally different from the generic statistics path, where:
 
-If:
+```text
+StatsEvent.area
+```
+
+is normally used as the operation area.
+
+Conceptually, for the researched mower-progress path:
 
 ```text
 area
-```
+    │
+    └── total target area used for progress calculation
 
-represents the complete target area of the current job and:
-
-```text
-mowedArea
-```
-
-represents the already completed part of that same target in the same unit, a progress percentage can conceptually be calculated as:
-
-```text
 mowed_area
-────────── × 100
-   area
+    │
+    └── completed area exposed as "Area mowed"
 ```
 
-However, this calculation should only be exposed when those assumptions are verified.
+Status:
 
-The client development branch currently exposes the raw data rather than adding a new calculated percentage field.
+**HA implemented / HA tested**
 
-This is deliberate.
+---
 
-It keeps protocol parsing separate from higher-level interpretation.
+# Mowing progress percentage
+
+There is no dedicated ECOVACS field or `deebot_client` event field named:
+
+```text
+progress_percent
+```
+
+The Home Assistant development branch calculates progress as:
+
+```python
+mowed_area / area * 100
+```
+
+when:
+
+```text
+area is present
+area != 0
+mowed_area is present
+```
+
+Otherwise the result is unknown.
 
 Conceptually:
 
 ```text
-ECOVACS protocol
-      │
-      ▼
- area + mowedArea
-      │
-      ▼
-deebot_client raw event
-      │
-      ▼
-integration may derive %
+completed area
+────────────── × 100
+ total area
 ```
 
-This allows a consuming integration such as Home Assistant to calculate progress if appropriate.
+This value is therefore:
 
----
+**Derived**
 
-# Why raw progress data is preferable
+rather than a direct protocol field.
 
-There are several advantages to exposing:
-
-```text
-area
-mowed_area
-```
-
-rather than immediately converting them to a percentage inside the protocol parser.
-
-## Protocol fidelity
-
-The client preserves what the mower actually reported.
-
-## Future interpretation changes
-
-If later research shows that:
-
-```text
-area
-```
-
-or:
-
-```text
-mowedArea
-```
-
-has model-specific semantics, the raw data remains available.
-
-## Integration flexibility
-
-Different consumers may want:
-
-* percentage
-* completed area
-* remaining area
-* progress bars
-* historical graphs
-
-These can all be derived from the same raw values once their units are known.
-
----
-
-# Remaining area
-
-If the semantics and units are confirmed to match, another possible derived value is:
-
-```text
-remaining_area = area - mowed_area
-```
-
-This is not currently a dedicated upstream or development event field.
-
-It should therefore be considered:
-
-**Derived data**
-
-rather than protocol data.
-
----
-
-# Estimated job duration
-
-The ECOVACS app displays an estimated duration when a mowing job is started.
-
-This is distinct from the elapsed:
-
-```text
-time
-```
-
-value found in statistics.
-
-Three concepts should therefore remain separate:
-
-```text
-Elapsed time
-Estimated total duration
-Estimated remaining time
-```
-
-They should not be treated as interchangeable.
-
-## App observation
-
-During physical GOAT testing, the ECOVACS application presented an estimate of how long the selected mowing operation was expected to take.
-
-This indicates that ECOVACS has enough information to estimate job duration at the application, cloud, mower, or protocol level.
+The calculation belongs in the consuming integration rather than the low-level protocol parser.
 
 Status:
 
-**Device/app observed**
+**HA implemented / HA tested / Derived**
 
-## Current client status
+---
 
-The reviewed:
+# Unknown progress is not zero progress
+
+The Home Assistant implementation distinguishes:
 
 ```text
-feature/mower-stats-progress
+mowed_area = 0
 ```
 
-implementation does **not** introduce a dedicated field for:
+from:
 
 ```text
-estimated_duration
+mowed_area = None
+```
+
+and rejects the calculation when:
+
+```text
+area = 0
 ```
 
 or:
 
 ```text
+area = None
+```
+
+This prevents unavailable statistics from being presented as:
+
+```text
+0%
+```
+
+when the correct state is:
+
+```text
+unknown
+```
+
+---
+
+# Estimated mowing duration
+
+The ECOVACS app has been observed displaying an estimated duration when a mowing job is started.
+
+During the O1200 progress work, the existing:
+
+```text
+StatsEvent.time
+```
+
+field was given a mower-specific integration interpretation.
+
+For models declaring:
+
+```text
+mowing_job_progress=True
+```
+
+the Home Assistant development branch exposes:
+
+```text
+StatsEvent.time
+```
+
+as:
+
+```text
+Estimated mowing duration
+```
+
+rather than the generic:
+
+```text
+Mowing duration
+```
+
+Status:
+
+**HA implemented / HA tested / App observed**
+
+---
+
+# Why the duration interpretation is model-gated
+
+The implementation does **not** claim:
+
+```text
+StatsEvent.time = estimated duration
+```
+
+for every ECOVACS device.
+
+Instead:
+
+```text
+normal statistics path
+        │
+        ▼
+time → operation duration
+
+mowing-job-progress path
+        │
+        ▼
+time → estimated mowing duration
+```
+
+The distinction is enabled by:
+
+```text
+CapabilityStats.mowing_job_progress
+```
+
+This is important because the same generic event type can carry different model-specific semantics.
+
+Strongest current evidence:
+
+```text
+GOAT O1200
+```
+
+Cross-model verification is still required before enabling the same interpretation elsewhere.
+
+---
+
+# No dedicated ETA field identified
+
+The current work has **not** identified a separate normalised field such as:
+
+```text
+eta
+estimated_duration
+estimated_remaining_time
 remaining_time
 ```
 
-It currently focuses on exposing:
+Therefore the following two statements can both be true:
 
-```text
-mowedArea
-```
+> The O1200 Home Assistant progress branch currently presents `StatsEvent.time` as estimated mowing duration.
 
-through `StatsEvent`.
+and:
 
-Therefore the existence of the app estimate should not be documented as an implemented `deebot_client` feature.
+> No separate explicit ECOVACS ETA protocol field has been identified.
+
+The second point remains an open protocol-research question.
 
 ---
 
-# Possible duration derivation
+# Estimated duration is not necessarily remaining time
 
-If progress and elapsed time are both reliable, an integration could theoretically estimate total duration from:
+The current integration label is:
 
 ```text
-elapsed time
-progress fraction
+Estimated mowing duration
 ```
 
-and calculate remaining duration.
-
-For example, conceptually:
+It should not automatically be described as:
 
 ```text
+Estimated remaining time
+```
+
+These concepts are different:
+
+```text
+elapsed duration
 estimated total duration
-          =
-elapsed time / progress fraction
+estimated remaining duration
 ```
 
-followed by:
+Future captures should establish how `StatsEvent.time` changes while a mowing job progresses.
 
-```text
-estimated remaining
-          =
-estimated total - elapsed
-```
+Useful questions include:
 
-However, this would be a client/integration-side estimate.
-
-It is not necessarily the same estimate displayed by the ECOVACS app.
-
-The app may use additional information such as:
-
-* mower speed
-* route planning
-* zone geometry
-* obstacle history
-* cutting pattern
-* planned path length
-* mower settings
-* battery requirements
-* charging interruptions
-* terrain or navigation data
-
-For that reason, a locally calculated estimate should be labelled clearly as derived.
+- Does the value remain constant during the job?
+- Does it decrease?
+- Does it change when route planning changes?
+- Does it represent planned total duration?
+- Does it represent another mower-specific time concept?
 
 ---
 
-# Protocol-supplied estimate versus calculated estimate
+# Units and scaling
 
-Future investigation should distinguish between:
+Raw protocol units should be documented carefully.
+
+The Home Assistant O1200 progress implementation currently uses:
 
 ```text
-A: ECOVACS supplies an explicit ETA/duration value
+mowed_area / area → square centimetres
+time              → seconds
+```
+
+for the mower-progress sensor path.
+
+Home Assistant then converts these values for presentation.
+
+Its automated tests verify, for example:
+
+```text
+mowed_area = 28699
+```
+
+being presented as:
+
+```text
+2.8699 m²
 ```
 
 and:
 
 ```text
-B: ECOVACS app calculates the estimate itself
+time = 2304
 ```
 
-These lead to different implementations.
-
-## Protocol-supplied
-
-If an explicit field is found:
+being presented as:
 
 ```text
-protocol field
-     │
-     ▼
-normalised event
-     │
-     ▼
-integration
+38.4 minutes
 ```
 
-This would be preferable because it preserves ECOVACS' own estimate.
+This mapping is **implemented and tested for the model-specific progress path**.
 
-## Locally calculated
+It should not automatically be promoted to a universal ECOVACS statistics rule for every GOAT model or every statistics event.
 
-If no explicit protocol value exists:
+---
+
+# Protocol fidelity versus integration semantics
+
+The preferred architecture is:
 
 ```text
-elapsed time + mowing progress
-             │
-             ▼
- integration calculation
-             │
-             ▼
-          local ETA
+ECOVACS protocol
+      │
+      ▼
+raw/normalised event values
+      │
+      ▼
+hardware capability describes semantics
+      │
+      ▼
+consumer integration presentation
 ```
 
-That value should not be presented as an ECOVACS-reported ETA.
+For example:
+
+```text
+mowedArea
+    │
+    ▼
+StatsEvent.mowed_area
+    │
+    ▼
+Area mowed
+```
+
+and:
+
+```text
+area + mowed_area
+        │
+        ▼
+derived mowing progress %
+```
+
+This keeps protocol parsing separate from user-interface interpretation.
+
+---
+
+# Remaining area
+
+If `area` and `mowed_area` represent the same job in the same unit, an integration could also calculate:
+
+```text
+remaining_area = area - mowed_area
+```
+
+This is not currently a dedicated client field.
+
+Status:
+
+**Derived / not currently exposed**
 
 ---
 
@@ -638,17 +661,13 @@ Statistics can also arrive through:
 reportStats
 ```
 
-messages.
-
-These are represented by:
+and are represented by:
 
 ```text
 ReportStatsEvent
 ```
 
-which extends the normal statistics event with job-specific information.
-
-The event contains:
+The event extends common statistics with job-related information such as:
 
 ```text
 cleaning_id
@@ -656,96 +675,49 @@ status
 content
 ```
 
-in addition to the normal statistics fields.
+The generic name:
 
-Again, `cleaning_id` is generic naming inherited from DEEBOT support.
+```text
+cleaning_id
+```
 
-For GOAT documentation it can conceptually be understood as a mowing-job identifier.
+comes from the shared DEEBOT abstraction.
+
+For GOAT, it can conceptually represent a mowing-job identifier.
 
 ---
 
 # Job status
 
-`ReportStatsEvent` uses:
+`ReportStatsEvent` uses the shared:
 
 ```text
 CleanJobStatus
 ```
 
-The shared enum currently contains:
+model.
 
-| Value                    | Meaning                     |
-| ------------------------ | --------------------------- |
-| `NO_STATUS`              | No explicit status          |
-| `CLEANING`               | Job currently active        |
-| `FINISHED`               | Job finished                |
-| `MANUALLY_STOPPED`       | Job stopped manually        |
+Relevant values include:
+
+| Value | Mower-oriented interpretation |
+| --- | --- |
+| `NO_STATUS` | No explicit job status |
+| `CLEANING` | Active mowing job |
+| `FINISHED` | Job finished |
+| `MANUALLY_STOPPED` | Job stopped manually |
 | `FINISHED_WITH_WARNINGS` | Job completed with warnings |
 
-For GOAT use:
+At a mower user-interface layer:
 
 ```text
 CLEANING
 ```
 
-should normally be interpreted as:
+should normally be displayed as:
 
 ```text
 MOWING
 ```
-
-at the user-interface level.
-
----
-
-# `reportStats` status parsing
-
-The parser starts from:
-
-```text
-CLEANING
-```
-
-for an active report.
-
-If no:
-
-```text
-stop
-```
-
-field exists, the parser uses:
-
-```text
-NO_STATUS
-```
-
-If the report contains a non-zero stop indication, the parser uses:
-
-```text
-stopReason
-```
-
-to determine the final `CleanJobStatus`.
-
-Conceptually:
-
-```text
-reportStats
-     │
-     ├── active
-     │      └── CLEANING
-     │
-     ├── no stop information
-     │      └── NO_STATUS
-     │
-     └── stopped
-            │
-            ▼
-        stopReason
-```
-
-This allows the client to distinguish normal completion from manual termination and some warning states.
 
 ---
 
@@ -763,23 +735,21 @@ represented as:
 list[int]
 ```
 
-The parser converts comma-separated protocol content values into integers.
+The exact GOAT-specific relationship between these numeric values and lawn zones should be established from protocol correlation rather than inferred solely from the type.
 
-Because the field is shared across ECOVACS device types, its exact mower-specific meaning should be documented only after GOAT protocol correlation.
-
-Possible relationships with zone or area identifiers should be confirmed from actual messages rather than inferred solely from the data type.
+Possible zone/area relationships remain a research topic.
 
 ---
 
 # Total statistics
 
-Cumulative statistics are represented by:
+Cumulative device statistics are represented by:
 
 ```text
 TotalStatsEvent
 ```
 
-with:
+with shared fields:
 
 ```python
 area: int
@@ -787,387 +757,196 @@ time: int
 cleanings: int
 ```
 
-The associated command is:
+The corresponding command is:
 
 ```text
 GetTotalStats
 ```
 
-with protocol command name:
+with wire name:
 
 ```text
 getTotalStats
 ```
 
-The response parser maps:
+The protocol mapping includes:
 
 ```text
-area  → area
-time  → time
-count → cleanings
+area  → TotalStatsEvent.area
+time  → TotalStatsEvent.time
+count → TotalStatsEvent.cleanings
 ```
 
-For GOAT use, the generic:
+For GOAT, user-facing wording should use mower terminology such as:
 
 ```text
-cleanings
+Total area mowed
+Total mowing duration
+Total mowings
 ```
 
-name should be interpreted as a count of mowing/operation activity according to the protocol semantics.
+rather than vacuum-oriented wording.
+
+Status:
+
+**Upstream implemented**
 
 ---
 
-# Current versus total statistics
+# Current versus cumulative statistics
 
-It is useful to distinguish:
-
-```text
-StatsEvent
-```
-
-from:
-
-```text
-TotalStatsEvent
-```
+Do not use cumulative statistics to calculate active-job progress.
 
 Conceptually:
 
 ```text
 StatsEvent
-   │
-   └── current/recent job information
+    │
+    └── current/recent operation data
 
 TotalStatsEvent
-   │
-   └── cumulative device information
+    │
+    └── lifetime/cumulative device data
 ```
 
-An integration should not use cumulative values when calculating the progress of the active job.
+The mowing-progress calculation uses current-job statistics.
 
 ---
 
 # Model support
 
-All five reviewed upstream GOAT hardware profiles currently expose:
+All five reviewed upstream GOAT profiles expose the common statistics capability:
 
-```text
-CapabilityStats
-```
+- GOAT G1
+- GOAT A1600 RTK
+- GOAT A3000 LiDAR Pro
+- GOAT O500 Panorama
+- GOAT O1200 LiDAR
 
-including:
+This confirms common support for the statistics architecture.
 
-```text
-StatsEvent
-ReportStatsEvent
-TotalStatsEvent
-```
+It does **not** prove that all optional mower-specific fields or semantics are shared by all models.
 
-The reviewed profiles are:
-
-* GOAT G1
-* GOAT A1600 RTK
-* GOAT A3000 LiDAR Pro
-* GOAT O500 Panorama
-* GOAT O1200 LiDAR
-
-This confirms common statistics capability wiring.
-
-It does not prove that every model sends every optional statistics field such as:
+In particular:
 
 ```text
 mowedArea
+mowing_job_progress
+estimated-duration interpretation
 ```
 
-The additional field should be considered model/protocol dependent until tested more broadly.
+should remain model-evidence-based.
 
 ---
 
 # O1200 development support
 
-The:
+Current strongest evidence for mower-job-progress semantics is the:
 
 ```text
+GOAT O1200 LiDAR
+```
+
+development profile.
+
+The development pair is:
+
+```text
+client.py:
 feature/mower-stats-progress
+
+Home Assistant core:
+feature/ecovacs-mower-progress
 ```
 
-work explicitly connects the progress-related statistics change to the O1200 development profile used during investigation.
+The client branch:
 
-Therefore the strongest current evidence for:
+- preserves `mowedArea`
+- adds `StatsEvent.mowed_area`
+- adds `CapabilityStats.mowing_job_progress`
+- enables `mowing_job_progress=True` for the researched O1200 profile
 
-```text
-mowedArea
-```
+The Home Assistant branch:
 
-should be recorded as:
-
-**GOAT O1200: protocol observed / fork implemented**
-
-Support on other models should not be assumed solely because they share the generic statistics capability.
+- exposes current area mowed
+- derives mowing progress percentage
+- exposes `StatsEvent.time` as estimated mowing duration
+- applies mower-specific units and presentation
+- includes automated tests for the progress path
 
 ---
 
-# Integration recommendations
+# Current Home Assistant entities
 
-A mower-oriented integration can potentially expose several useful values.
-
-## Raw values
-
-When available:
+For the researched O1200 progress implementation, the tested entities are equivalent to:
 
 ```text
-area
-mowed_area
-time
-type
+sensor.goat_o1200_lidar_area_mowed
+sensor.goat_o1200_lidar_mowing_progress
+sensor.goat_o1200_lidar_estimated_mowing_duration
 ```
 
-These most closely represent the client event.
-
-## Derived values
-
-After confirming semantics:
-
-```text
-progress percentage
-remaining area
-```
-
-These should be clearly understood as calculated values.
-
-## Job status
-
-From:
-
-```text
-ReportStatsEvent.status
-```
-
-an integration may expose:
-
-* mowing
-* finished
-* manually stopped
-* finished with warnings
-
-## Total statistics
-
-Cumulative values can be exposed independently for historical usage:
-
-* total area
-* total time
-* total operation count
+These names belong to the Home Assistant integration layer rather than the ECOVACS protocol itself.
 
 ---
 
-# Suggested Home Assistant representation
+# Current status summary
 
-Once units and semantics are confirmed, possible entities include:
-
-```text
-sensor.goat_mowing_progress
-sensor.goat_mowed_area
-sensor.goat_mowing_time
-sensor.goat_total_mowed_area
-sensor.goat_total_mowing_time
-sensor.goat_total_mowing_jobs
-```
-
-A duration/ETA sensor should only be added once its source is clearly defined.
-
-For example:
-
-```text
-sensor.goat_estimated_remaining_time
-```
-
-should specify whether it represents:
-
-```text
-ECOVACS-reported estimate
-```
-
-or:
-
-```text
-locally calculated estimate
-```
-
-Those should not silently be treated as equivalent.
+| Feature | Status |
+| --- | --- |
+| Common `StatsEvent` | Upstream implemented |
+| Common `ReportStatsEvent` | Upstream implemented |
+| Common `TotalStatsEvent` | Upstream implemented |
+| `mowedArea` parser | Fork implemented / Python tested / Protocol observed |
+| `StatsEvent.mowed_area` | Fork implemented |
+| `mowing_job_progress` capability flag | Fork implemented |
+| Current area mowed in HA | HA implemented / HA tested |
+| Progress percentage | Derived / HA implemented / HA tested |
+| `StatsEvent.time` as estimated mowing duration | Model-gated / HA implemented / HA tested |
+| Separate explicit ETA field | Not identified |
+| Estimated remaining time | Not established |
+| Cross-model progress semantics | Unverified |
 
 ---
 
-# Recommended progress logic
+# Recommended integration behaviour
 
-Once field semantics have been confirmed, consuming integrations could use logic conceptually equivalent to:
+Consumers should:
 
-```text
-if area is known
-and area > 0
-and mowed_area is known:
-
-    progress =
-        mowed_area / area
-```
-
-The integration should also handle:
-
-* missing `mowedArea`
-* zero target area
-* values temporarily resetting between jobs
-* stale statistics after job completion
-* new jobs replacing old job data
-* model/firmware differences
-
-A progress sensor should not assume that a missing value means zero progress.
-
-Missing data and zero are different states.
+1. expose raw current-job statistics where useful
+2. derive percentage only when the hardware profile explicitly declares appropriate semantics
+3. keep derived percentage separate from protocol fields
+4. treat the duration interpretation as model-specific
+5. avoid calling the duration value "remaining time" without evidence
+6. avoid enabling O1200-specific progress semantics on other GOAT models solely because they share `StatsEvent`
+7. retain raw values so future interpretation changes do not require protocol-parser redesign
 
 ---
 
-# Job lifecycle considerations
+# Open research questions
 
-Progress data should be interpreted together with mower state.
+The highest-value remaining questions are:
 
-For example:
-
-```text
-State.CLEANING
-      +
-StatsEvent
-      │
-      ▼
-active mowing progress
-```
-
-while:
-
-```text
-State.PAUSED
-      +
-StatsEvent
-      │
-      ▼
-paused job with retained progress
-```
-
-and:
-
-```text
-job stopped
-      +
-new statistics report
-      │
-      ▼
-completed/terminated job data
-```
-
-Care should be taken not to continue presenting an old percentage as the progress of a newly started job.
-
-Where possible, job identifiers from report messages can help correlate statistics to a specific operation.
+- Do other GOAT models send `mowedArea`?
+- Do they use the same scaling?
+- Does `StatsEvent.time` have the same mower-progress meaning on other models?
+- How does `time` behave during an active O1200 job?
+- Is there a separate explicit ETA field in another message?
+- Does the ECOVACS app receive additional route-planning data for its estimate?
+- How are statistics reported for multi-zone mowing?
+- Does `ReportStatsEvent.content` correlate with mower zone IDs?
+- Can remaining area be safely derived on all relevant job types?
 
 ---
 
-# Evidence summary
+# Related documentation
 
-## Upstream implemented
-
-Current upstream provides:
-
-* `CapabilityStats`
-* `StatsEvent`
-* `ReportStatsEvent`
-* `TotalStatsEvent`
-* `GetStats`
-* `GetTotalStats`
-* `reportStats`
-* `onStats`
-* common job status handling
-* statistics capability wiring for the reviewed GOAT profiles
-
-## Fork implemented
-
-`feature/mower-stats-progress` adds:
-
-```text
-StatsEvent.mowed_area
-```
-
-and parses:
-
-```text
-mowedArea
-```
-
-from:
-
-* `getStats`
-* `onStats`
-
-The branch also contains test coverage for the additional field.
-
-## Device/protocol observed
-
-GOAT investigation has identified:
-
-```text
-mowedArea
-```
-
-in mower statistics communication.
-
-The ECOVACS application also displays an estimated job duration when a mowing job is started.
-
-## Not yet upstream
-
-At the reviewed baseline:
-
-```text
-mowed_area
-```
-
-is not part of upstream `dev`.
-
-## Still requiring investigation
-
-The following should remain open until further verified:
-
-* physical unit of `area`
-* physical unit of `mowedArea`
-* physical unit/semantics of `time` for GOAT
-* whether all GOAT models provide `mowedArea`
-* when progress values reset
-* behaviour across pause/resume
-* behaviour across charging interruptions
-* explicit ECOVACS ETA/duration protocol field, if any
-* source of the app's estimated job duration
-* multi-zone progress semantics
-* whether progress is based on geometric area, planned route, or another internal metric
-
----
-
-# Relevant source files
-
-## Upstream
-
-* [`deebot_client/capabilities.py`](https://github.com/DeebotUniverse/client.py/blob/dev/deebot_client/capabilities.py)
-* [`deebot_client/events/__init__.py`](https://github.com/DeebotUniverse/client.py/blob/dev/deebot_client/events/__init__.py)
-* [`deebot_client/commands/json/stats.py`](https://github.com/DeebotUniverse/client.py/blob/dev/deebot_client/commands/json/stats.py)
-* [`deebot_client/messages/json/stats.py`](https://github.com/DeebotUniverse/client.py/blob/dev/deebot_client/messages/json/stats.py)
-
-## Development branch
-
-* [`deebot_client/events/__init__.py`](https://github.com/monsivar/client.py/blob/feature/mower-stats-progress/deebot_client/events/__init__.py)
-* [`deebot_client/commands/json/stats.py`](https://github.com/monsivar/client.py/blob/feature/mower-stats-progress/deebot_client/commands/json/stats.py)
-* [`deebot_client/messages/json/stats.py`](https://github.com/monsivar/client.py/blob/feature/mower-stats-progress/deebot_client/messages/json/stats.py)
-* [`tests/commands/json/test_stats.py`](https://github.com/monsivar/client.py/blob/feature/mower-stats-progress/tests/commands/json/test_stats.py)
-
-## Related documentation
-
-* [Supported models](supported-models.md)
-* [Capability architecture](capabilities.md)
-* [Mowing control](mowing-control.md)
-* [Zone and area mowing](zones-and-areas.md)
-* Mower settings *(planned)*
-* Protocol reference *(planned)*
-* Home Assistant integration *(planned)*
+- [Overview](overview.md)
+- [Supported models](supported-models.md)
+- [Mowing control](mowing-control.md)
+- [Zones and areas](zones-and-areas.md)
+- [Protocol reference](protocol-reference.md)
+- [Home Assistant integration](home-assistant.md)
+- [Testing status](testing-status.md)
+- [Known limitations](known-limitations.md)
+- [Protocol observations](../research/protocol-observations.md)
