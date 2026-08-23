@@ -121,6 +121,7 @@ Home Assistant
 | Device-specific command lookup and MQTT/P2P routing | [Command routing](docs/command-routing.md) |
 | Start, pause, resume, stop and dock | [Mowing control](docs/mowing-control.md) |
 | Lawn zones and area mowing | [Zones and areas](docs/zones-and-areas.md) |
+| GOAT static-map protocol, work areas and shared SVG rendering | [GOAT maps](docs/map.md) |
 | Job progress and mowing statistics | [Progress and statistics](docs/progress-and-statistics.md) |
 | Mower settings | [Settings](docs/settings.md) |
 | O1200 global rain, AI, animal-protection and volume settings | [O1200 global settings](docs/o1200-global-settings.md) |
@@ -264,6 +265,7 @@ The strongest current implementation and test coverage includes:
 - common mower settings
 - device-specific command-routing architecture under development in PR #1772
 - O1200 zone-specific area-parameter protocol (`mowHeightLevel`, `cutMode`, `obstacleHeight`, `angle`)
+- O1200 static-map parser/rendering stack under development (#1782/#1788/#1789)
 - O1200 global rain, AI, animal-protection and mower-volume protocol
 - O1200 area-name/ID mapping through `getAreaSet` / `RoomsEvent`
 - O1200 current-job progress
@@ -592,6 +594,7 @@ deebot-goat-docs/
 │   ├── command-routing.md
 │   ├── mowing-control.md
 │   ├── zones-and-areas.md
+│   ├── map.md
 │   ├── progress-and-statistics.md
 │   ├── settings.md
 │   ├── area-parameters.md
