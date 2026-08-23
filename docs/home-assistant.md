@@ -781,6 +781,16 @@ It should follow Home Assistant architecture and confirmed GOAT semantics.
 
 ---
 
+# O1200 global settings in Home Assistant
+
+PR #1778 provides the client-side capability layer for several O1200 global settings.
+
+Detailed client reference:
+
+[O1200 global settings](o1200-global-settings.md)
+
+These are not all exposed by the reviewed Home Assistant mower branch.
+
 # AI recognition
 
 Capability:
@@ -851,12 +861,32 @@ Client fork implemented / HA not yet exposed
 
 ---
 
-# Lifted-alarm volume
+# System and lifted-alarm volume
 
-Capability:
+O1200 client development distinguishes:
 
 ```text
+settings.volume
 settings.fall_volume
+```
+
+The O1200 setter wiring uses an observed:
+
+```text
+0–10
+```
+
+scale with:
+
+```text
+total = 10
+```
+
+and separate channels:
+
+```text
+sys
+fall
 ```
 
 Likely representation:
@@ -865,14 +895,15 @@ Likely representation:
 number
 ```
 
-Current implementation suggests:
+The two channels should remain separate.
+
+A third read payload field:
 
 ```text
-0–10
-step 1
+searchVolume
 ```
 
-It should remain separate from normal system volume.
+should **not** be exposed as writable in Home Assistant because no setter protocol has been observed.
 
 ---
 
@@ -894,7 +925,9 @@ time start
 time end
 ```
 
-But every write must preserve the other fields.
+But `SetAnimalProtection` writes all three fields together.
+
+Every write must therefore preserve the latest other values.
 
 Recommended pattern:
 
@@ -905,7 +938,10 @@ latest AnimalProtectionEvent
 replace one field
        │
        ▼
-send complete configuration
+send complete enabled/start/end configuration
+       │
+       ▼
+wait for onAnimProtect
 ```
 
 ---
@@ -936,6 +972,8 @@ step 30
 Writes should preserve the sibling field.
 
 For example, disabling rain protection should preserve the configured delay unless explicitly changed.
+
+There is currently no documented `getRainDelay` refresh command; state is reported through `onRainDelay`.
 
 ---
 
@@ -1187,6 +1225,7 @@ Home Assistant progress branch:
 - [Mowing control](mowing-control.md)
 - [Zones and areas](zones-and-areas.md)
 - [O1200 area parameters](area-parameters.md)
+- [O1200 global settings](o1200-global-settings.md)
 - [O1200 area names](area-names.md)
 - [Progress and statistics](progress-and-statistics.md)
 - [Settings](settings.md)

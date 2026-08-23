@@ -824,6 +824,8 @@ onAnimProtect
 
 The development tests verify time normalisation and configuration parsing.
 
+`SetAnimalProtection` writes the complete `enabled` / `start` / `end` configuration, and PR #1778 reports direct toggle observation plus time-update confirmation through push state.
+
 Runtime state is separately represented through:
 
 ```text
@@ -897,19 +899,51 @@ Confidence:
 
 System volume is supported upstream.
 
-Development work also adds a separate lifted-alarm/fall volume interpretation using the same protocol command family.
+PR #1778 extends mower handling without breaking the existing `SetVolume(volume)` interface.
+
+For the O1200 development profile:
+
+```text
+system volume:
+type = sys
+total = 10
+
+lifted-alarm volume:
+type = fall
+total = 10
+```
+
+The read payload can contain:
+
+```text
+volume
+fallVolume
+searchVolume
+```
+
+Normalised client state is currently created for:
+
+```text
+volume
+fallVolume
+```
+
+but not for `searchVolume`, because no setter protocol has been observed.
 
 Status:
 
 ```text
 System volume:
-Upstream
+Upstream capability / O1200 handling refined
 
 Lifted-alarm volume:
 Fork / Python tested
+
+searchVolume:
+Observed in payload / no capability
 ```
 
-The physical effect of the latter has not been systematically documented.
+The physical effect of the lifted-alarm volume has not been systematically documented.
 
 ---
 
@@ -1019,6 +1053,43 @@ See [O1200 area parameters](area-parameters.md).
 
 ---
 
+# PR #1776 / #1778 validation snapshot
+
+The PR descriptions record the following development-branch validation.
+
+## PR #1776
+
+```text
+20 focused rain/protect-state tests passed
+729 tests passed in the broad Windows-compatible suite
+11 deselected
+Ruff passed
+mypy passed
+git diff --check passed
+```
+
+## PR #1778
+
+```text
+31 targeted tests passed
+targeted Ruff passed
+targeted mypy passed
+git diff --check passed
+```
+
+The extended command/message/hardware run reported:
+
+```text
+359 passed
+3 failed
+```
+
+The PR attributes the three failures to the Windows checkout representation of hardware symlinks as text files rather than the changed mower-setting implementation.
+
+These numbers are a snapshot of the PR validation state, not an upstream merge guarantee.
+
+---
+
 # Firmware context
 
 Mower behaviour can differ across firmware versions.
@@ -1099,6 +1170,7 @@ Recommended priorities:
 - [Zones and areas](zones-and-areas.md)
 - [Progress and statistics](progress-and-statistics.md)
 - [Settings](settings.md)
+- [O1200 global settings](o1200-global-settings.md)
 - [O1200 area parameters](area-parameters.md)
 - [O1200 area names](area-names.md)
 - [Rain and protection](rain-and-protection.md)

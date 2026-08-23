@@ -8,6 +8,8 @@ Last reviewed against:
 - mower development branches
 - [`PR #1767`](https://github.com/DeebotUniverse/client.py/pull/1767)
 - [`PR #1768`](https://github.com/DeebotUniverse/client.py/pull/1768)
+- [`PR #1776`](https://github.com/DeebotUniverse/client.py/pull/1776)
+- [`PR #1778`](https://github.com/DeebotUniverse/client.py/pull/1778)
 
 Date: **2026-08-23**
 
@@ -23,6 +25,8 @@ This page distinguishes between:
 - features that remain unmapped
 
 Implementation in Python is not the same as complete physical-device verification.
+
+The combined O1200 global-settings implementation is documented in detail in [O1200 global settings](o1200-global-settings.md).
 
 ---
 
@@ -93,6 +97,8 @@ Development work in:
 
 - [`PR #1767`](https://github.com/DeebotUniverse/client.py/pull/1767)
 - [`PR #1768`](https://github.com/DeebotUniverse/client.py/pull/1768)
+- [`PR #1776`](https://github.com/DeebotUniverse/client.py/pull/1776)
+- [`PR #1778`](https://github.com/DeebotUniverse/client.py/pull/1778)
 
 adds a zone-specific setting capability:
 
@@ -725,17 +731,60 @@ start
 end
 ```
 
-The time values are normalised for the client representation.
+The time values are normalised to:
+
+```text
+HH:MM
+```
 
 Status:
 
-**Fork implemented / Python tested**
+**Fork implemented / Python tested / Protocol observed**
+
+## Complete-configuration writes
+
+`SetAnimalProtection` writes the complete configuration:
+
+```text
+enable
+start
+end
+```
+
+on every update.
+
+Therefore a higher-level integration changing only one value must preserve the other two current values.
+
+Conceptually:
+
+```text
+latest AnimalProtectionEvent
+        │
+        ▼
+replace requested field
+        │
+        ▼
+SetAnimalProtection(
+    enabled,
+    start,
+    end
+)
+        │
+        ▼
+onAnimProtect
+```
+
+PR #1778 reports direct observation of toggle writes and confirmation of time updates through pushed state.
 
 This configuration should be kept separate from runtime:
 
 ```text
 ProtectStateEvent.is_anim_protect
 ```
+
+Detailed implementation notes:
+
+[O1200 global settings](o1200-global-settings.md)
 
 ---
 
@@ -781,13 +830,24 @@ Accepted development values:
 
 The current O1200 development capability has no explicit refresh GET assigned and relies on the push state.
 
+No undocumented:
+
+```text
+getRainDelay
+```
+
+command is introduced.
+
+PR #1776 also deliberately avoids assigning meanings to rain-related event code `2052` or rain-specific pause-reason values because their semantics are not sufficiently documented.
+
 Status:
 
 **Fork implemented / Python tested / Protocol observed**
 
 Detailed documentation:
 
-[Rain and protection](rain-and-protection.md)
+- [Rain and protection](rain-and-protection.md)
+- [O1200 global settings](o1200-global-settings.md)
 
 ---
 
@@ -795,7 +855,16 @@ Detailed documentation:
 
 The common GOAT profiles expose system volume.
 
-Development work distinguishes system and lifted/fall warning volume through the shared `setVolume`/`getVolume` family.
+PR #1778 extends the shared `getVolume` / `setVolume` family for the O1200 while keeping existing `SetVolume(volume)` behaviour backward compatible.
+
+A complete O1200 mower payload can contain:
+
+```text
+total
+volume
+fallVolume
+searchVolume
+```
 
 ## System volume
 
@@ -805,15 +874,28 @@ Capability:
 volume
 ```
 
-Typical development range:
+O1200 setter wiring:
 
 ```text
-0–10
+type  = sys
+total = 10
 ```
+
+Example:
+
+```json
+{
+  "type": "sys",
+  "total": 10,
+  "volume": 6
+}
+```
+
+The `total=10` value is based on observed O1200 behaviour and should not be treated as a universal ECOVACS volume rule.
 
 Status:
 
-**Upstream implemented**
+**Upstream capability / O1200 protocol handling refined in PR #1778**
 
 ## Lifted-alarm volume
 
@@ -823,15 +905,63 @@ Capability:
 fall_volume
 ```
 
+Event:
+
+```text
+FallVolumeEvent
+```
+
 Protocol channel/type:
 
 ```text
 fall
 ```
 
+Setter:
+
+```text
+SetFallVolume
+```
+
+Wire command:
+
+```text
+setVolume
+```
+
+Example:
+
+```json
+{
+  "type": "fall",
+  "total": 10,
+  "volume": 6
+}
+```
+
 Status:
 
 **Fork implemented / Python tested**
+
+## `searchVolume`
+
+The field:
+
+```text
+searchVolume
+```
+
+has been observed in the complete mower volume payload.
+
+It is not exposed as a separate capability because no setter protocol has been observed.
+
+Status:
+
+**Observed read field / no writable capability**
+
+Detailed documentation:
+
+[O1200 global settings](o1200-global-settings.md)
 
 ---
 
@@ -975,6 +1105,7 @@ The O1200 area-parameter tuple should **not** be split into independent writable
 # Related documentation
 
 - [O1200 area parameters](area-parameters.md)
+- [O1200 global settings](o1200-global-settings.md)
 - [Supported models](supported-models.md)
 - [Capabilities](capabilities.md)
 - [Zones and areas](zones-and-areas.md)

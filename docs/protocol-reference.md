@@ -1079,9 +1079,19 @@ Time strings are normalised to:
 HH:MM
 ```
 
+`setAnimProtect` writes the complete tuple:
+
+```text
+enable
+start
+end
+```
+
+rather than a partial field update.
+
 Status:
 
-**Fork / Tested**
+**Fork / Observed / Tested**
 
 ---
 
@@ -1112,6 +1122,10 @@ Allowed development values:
 step 30 minutes
 ```
 
+No `getRainDelay` refresh command is introduced in PR #1776/#1778.
+
+The setter acknowledgement does not itself emit `RainDelayEvent`; resulting state is reported by `onRainDelay`.
+
 Status:
 
 **Fork / Observed / Tested**
@@ -1135,6 +1149,17 @@ Important:
 ```text
 configuration state ≠ current rain condition
 ```
+
+## Deliberately unmapped rain codes
+
+PR #1776 explicitly leaves:
+
+```text
+event code 2052
+rain-specific pause-reason values
+```
+
+without semantic mappings because their meanings are not sufficiently documented.
 
 ---
 
@@ -1185,13 +1210,50 @@ remains open.
 
 # Volume
 
-## System
+## Read payload
 
 Wire:
 
 ```text
 getVolume
+onVolume
+```
+
+A complete O1200 payload can contain:
+
+```json
+{
+  "total": 10,
+  "volume": 5,
+  "fallVolume": 2,
+  "searchVolume": 10
+}
+```
+
+Normalised mapping:
+
+```text
+volume
+    → VolumeEvent
+
+fallVolume
+    → FallVolumeEvent
+```
+
+`searchVolume` is currently not exposed as a separate capability because no setter protocol has been observed.
+
+## System
+
+Wire:
+
+```text
 setVolume
+```
+
+O1200 channel:
+
+```text
+sys
 ```
 
 Example:
@@ -1202,6 +1264,15 @@ Example:
   "total": 10,
   "volume": 6
 }
+```
+
+The generic `SetVolume(volume)` API remains backward compatible; `channel` and `total` are optional at the shared command level.
+
+The O1200 capability explicitly supplies:
+
+```text
+channel = sys
+total   = 10
 ```
 
 ## Lifted/fall channel
@@ -1239,6 +1310,8 @@ Push:
 ```text
 onVolume
 ```
+
+The observed O1200 implementation uses `total=10` for both system and lifted-alarm volume.
 
 ---
 
@@ -1533,6 +1606,7 @@ Prefer minimal payload examples.
 - [Mowing control](mowing-control.md)
 - [Zones and areas](zones-and-areas.md)
 - [O1200 area parameters](area-parameters.md)
+- [O1200 global settings](o1200-global-settings.md)
 - [O1200 area names](area-names.md)
 - [Progress and statistics](progress-and-statistics.md)
 - [Settings](settings.md)

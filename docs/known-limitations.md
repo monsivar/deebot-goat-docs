@@ -726,6 +726,8 @@ lifted-alarm volume
 protection state
 ```
 
+PR #1778 additionally refines O1200 system-volume payload handling while preserving the shared `SetVolume(volume)` interface.
+
 This does not establish support on all GOAT models.
 
 Status for other models:
@@ -845,6 +847,8 @@ ProtectStateEvent.is_anim_protect
 
 The exact relationship between schedule boundaries and runtime transitions is not fully established.
 
+`SetAnimalProtection` writes the complete `enabled` / `start` / `end` tuple. Integrations must therefore preserve sibling values when changing one field.
+
 Animal protection should not automatically be described as a generic "night restriction".
 
 Status:
@@ -884,6 +888,8 @@ post-rain waiting period
 ```
 
 but this remains unconfirmed.
+
+PR #1776 also deliberately does not map rain-related event code `2052` or rain-specific pause-reason values because their semantics are not sufficiently documented.
 
 ---
 
@@ -977,6 +983,58 @@ must not automatically be equated with:
 
 ```text
 child_lock
+```
+
+---
+
+# O1200 volume protocol still has one unmapped channel
+
+A complete O1200 volume payload can include:
+
+```text
+volume
+fallVolume
+searchVolume
+```
+
+PR #1778 maps:
+
+```text
+volume     → VolumeEvent
+fallVolume → FallVolumeEvent
+```
+
+but does not expose:
+
+```text
+searchVolume
+```
+
+as a separate capability.
+
+Reason:
+
+```text
+no setter protocol has been observed
+```
+
+The O1200 setters also currently use the observed:
+
+```text
+total = 10
+```
+
+scale.
+
+This is an evidence-backed O1200 assumption, not a universal ECOVACS volume rule.
+
+Status:
+
+```text
+system volume: mapped
+lifted-alarm volume: mapped
+searchVolume: read field only
+cross-model volume scale: unverified
 ```
 
 ---
@@ -1291,6 +1349,7 @@ This keeps implementation evidence separate from assumption.
 - [Zones and areas](zones-and-areas.md)
 - [Progress and statistics](progress-and-statistics.md)
 - [Settings](settings.md)
+- [O1200 global settings](o1200-global-settings.md)
 - [O1200 area parameters](area-parameters.md)
 - [O1200 area names](area-names.md)
 - [Rain and protection](rain-and-protection.md)
