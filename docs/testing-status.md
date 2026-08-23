@@ -133,8 +133,10 @@ Likewise, a Home Assistant test can prove that an event is exposed correctly as 
 | Emergency-stop flag | — | ✓ | ✓ | field mapped | behaviour not mapped | Not yet exposed | Low/Medium |
 | Locked-state flag | — | ✓ | ✓ | field mapped | child-lock relation unknown | Not yet exposed | Low/Medium |
 | PIN-code flag | — | ✓ | ✓ | field mapped | semantics unknown | Not yet exposed | Low |
-| Cutting height | — | — | — | — | app/model feature requires mapping | — | Not mapped |
-| GOAT mowing efficiency/mode | — | — | — | — | requires mapping | — | Not mapped |
+| O1200 `mowHeightLevel` | — | ✓ | ✓ | ✓ | App/protocol correlation | Not yet exposed | High for raw O1200 field; physical level mapping incomplete |
+| O1200 `cutMode` | — | ✓ | ✓ | ✓ | App/protocol correlation | Not yet exposed | High for raw field; enum semantics incomplete |
+| O1200 `obstacleHeight` | — | ✓ | ✓ | ✓ | App/protocol correlation | Not yet exposed | High for raw field; physical semantics incomplete |
+| O1200 area `angle` | — | ✓ | ✓ | ✓ | App/protocol correlation | Not yet exposed | High for raw field; relation to global cut direction incomplete |
 | Mowing speed | — | — | — | — | requires mapping | — | Not mapped |
 | Scheduling | Partial generic ecosystem only | — | — | GOAT mapping incomplete | App feature area | — | Not mapped for GOAT |
 | GOAT map semantics | Partial generic client map support | separate research | — | incomplete | app/device mapping exists | separate work | Incomplete |
@@ -910,21 +912,109 @@ The physical effect of the latter has not been systematically documented.
 
 ---
 
-# Not-yet-mapped mower settings
+# O1200 area-parameter settings
 
-The following remain important protocol-research targets:
+The PR family:
 
 ```text
-cutting height
-GOAT mowing efficiency/mode
-mowing speed
+#1767 setAreaParameter
+#1768 getAreaParameter / onAreaParameter
 ```
+
+maps a zone-specific O1200 parameter record containing:
+
+```text
+areaID
+mowHeightLevel
+cutMode
+obstacleHeight
+angle
+```
+
+The normalised client representation is:
+
+```text
+AreaParameter
+AreaParameterEvent
+```
+
+and the combined development capability is:
+
+```text
+settings.area_parameter
+```
+
+Status:
+
+**Fork / Python tested / Protocol observed**
+
+This changes the status of several former research gaps.
+
+## Cutting height
+
+The protocol field is known:
+
+```text
+mowHeightLevel
+```
+
+Therefore cutting height is **not protocol-unmapped for the researched O1200**.
+
+Remaining work is semantic:
+
+```text
+raw level → app/physical height/unit
+```
+
+## Cut mode
+
+The raw zone field is known:
+
+```text
+cutMode
+```
+
+Remaining work is:
+
+```text
+integer value → official app/user-facing mode and behaviour
+```
+
+It should not automatically be equated with generic `efficiency_mode`.
+
+## Obstacle height
+
+The raw zone field is known:
+
+```text
+obstacleHeight
+```
+
+Remaining work is its exact app label, physical meaning and unit.
+
+## Zone angle
+
+The raw zone field is known:
+
+```text
+angle
+```
+
+Remaining work includes clarifying its relationship to upstream global:
+
+```text
+cut_direction
+```
+
+## Mowing speed
+
+A dedicated mower-speed protocol remains unidentified.
 
 Status:
 
 **Not mapped**
 
-No speculative Home Assistant entities should be created until their protocol semantics and valid values are established.
+See [O1200 area parameters](area-parameters.md).
 
 ---
 
@@ -981,18 +1071,21 @@ The strongest current project evidence is for:
 
 Recommended priorities:
 
-1. cutting height
-2. mowing mode / efficiency
-3. mowing speed
-4. exact O1200 zone-ID command
-5. cross-model progress-statistics verification
-6. behaviour of `StatsEvent.time` throughout an active job
-7. exact AI app-setting mapping
-8. post-rain delay lifecycle
-9. animal-protection runtime behaviour
-10. zone names and metadata
-11. scheduling
-12. GOAT map semantics
+1. map `mowHeightLevel` values to exact app/physical cutting heights
+2. decode `cutMode` values and user-facing meanings
+3. determine `obstacleHeight` semantics/unit
+4. clarify area `angle` versus global `cut_direction`
+5. map mowing speed
+6. confirm exact O1200 selected-zone start command and zone metadata
+7. cross-model area-parameter support
+8. cross-model progress-statistics verification
+9. behaviour of `StatsEvent.time` throughout an active job
+10. exact AI app-setting mapping
+11. post-rain delay lifecycle
+12. animal-protection runtime behaviour
+13. zone names and metadata
+14. scheduling
+15. GOAT map semantics
 
 ---
 
@@ -1004,6 +1097,7 @@ Recommended priorities:
 - [Zones and areas](zones-and-areas.md)
 - [Progress and statistics](progress-and-statistics.md)
 - [Settings](settings.md)
+- [O1200 area parameters](area-parameters.md)
 - [Rain and protection](rain-and-protection.md)
 - [Obstacle and AI](obstacle-and-ai.md)
 - [Protocol reference](protocol-reference.md)
