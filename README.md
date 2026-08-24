@@ -133,6 +133,7 @@ Home Assistant
 | Home Assistant representation | [Home Assistant](docs/home-assistant.md) |
 | Verification and test status | [Testing status](docs/testing-status.md) |
 | Unsupported and unresolved functionality | [Known limitations](docs/known-limitations.md) |
+| Upstream change tracking automation | [Automation](docs/automation.md) |
 
 ## Protocol research
 

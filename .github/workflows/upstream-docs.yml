@@ -1,0 +1,46 @@
+name: Track upstream client changes
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+  repository_dispatch:
+    types:
+      - upstream-release
+      - upstream-pr-merged
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-change-log:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out documentation
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Collect upstream changes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/update_upstream_change_log.py
+
+      - name: Open documentation update pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: "docs: record upstream client changes"
+          title: "docs: record upstream client changes"
+          body: |
+            Automated change log collected from `DeebotUniverse/client.py`.
+
+            This pull request records upstream releases, merged pull requests and
+            commits for human review. It does not infer protocol semantics or
+            promote observations into authoritative documentation.
+          branch: automation/upstream-change-log
+          delete-branch: true
+          labels: documentation,automation
