@@ -389,19 +389,11 @@ PROTOCOL + CLIENT
 
 ---
 
-# Cutting height — updated status
+# Cutting height — semantic mapping implemented in HA development
 
-## Previous status
+## Protocol layer
 
-Earlier research tracked cutting height as:
-
-```text
-NOT MAPPED
-```
-
-That is no longer correct for the O1200.
-
-## Known protocol field
+Known O1200 field:
 
 ```text
 mowHeightLevel
@@ -419,62 +411,78 @@ Evidence:
 PROTOCOL + CLIENT + TEST
 ```
 
+## HA semantic layer
+
+Branch:
+
+```text
+monsivar/core
+feature/ecovacs-area-parameter
+```
+
+implements:
+
+```python
+height_cm = (17 - level) / 2
+level = 17 - height_cm * 2
+```
+
+with:
+
+```text
+minimum = 3.0 cm
+maximum = 8.0 cm
+step    = 0.5 cm
+```
+
+and automated helper tests covering all implemented levels:
+
+| `mowHeightLevel` | HA semantic height |
+| ---: | ---: |
+| 11 | 3.0 cm |
+| 10 | 3.5 cm |
+| 9 | 4.0 cm |
+| 8 | 4.5 cm |
+| 7 | 5.0 cm |
+| 6 | 5.5 cm |
+| 5 | 6.0 cm |
+| 4 | 6.5 cm |
+| 3 | 7.0 cm |
+| 2 | 7.5 cm |
+| 1 | 8.0 cm |
+
+Evidence:
+
+```text
+HA + TEST
+```
+
 ## What is now known
 
 ```text
-zone-specific cutting-height level field exists
+zone-specific cutting-height raw field exists
 GET state exists
 SET command exists
 PUSH state exists
+software conversion to centimetres exists
+implemented range is 3.0–8.0 cm
+implemented step is 0.5 cm
 ```
 
 ## What is still open
 
 ```text
-raw level → physical/app height
-valid range
-minimum
-maximum
-step
-unit
+independent physical/app verification of every level
+confirmation that raw 1..11 is the complete protocol-valid range
+firmware/region differences
 cross-model mapping
 ```
 
-Do not interpret:
+The research target is now **validation of an implemented semantic table**, not discovery of the O1200 height formula.
 
-```text
-mowHeightLevel = 10
-```
+# Zone cut mode / mowing speed — semantic mapping implemented in HA development
 
-as:
-
-```text
-10 mm
-```
-
-without evidence.
-
-## Recommended next experiment
-
-For one fixed area:
-
-```text
-1. record app cutting height
-2. record getAreaParameter
-3. change only cutting height one step
-4. capture onAreaParameter
-5. record mowHeightLevel
-6. repeat all available app heights
-7. map raw level ↔ displayed/physical height
-```
-
-The research target is now **semantic mapping**, not command discovery.
-
----
-
-# Zone cut mode — updated status
-
-## Known field
+Known raw field:
 
 ```text
 cutMode
@@ -492,52 +500,47 @@ Evidence:
 PROTOCOL + CLIENT + TEST
 ```
 
-Observed/test values include integers such as:
+The HA development branch maps:
 
 ```text
-4
-7
+7 → Gentle / 0.35 m/s
+4 → Efficient / 0.5 m/s
 ```
 
-## Safe conclusion
+and tests both directions.
 
-A raw zone-specific cut-mode field exists.
-
-## Open questions
+Evidence:
 
 ```text
-Which official app control changes cutMode?
-What does each integer mean?
-Does it affect pattern, efficiency, passes, route, or another concept?
-Does it replace or coexist with generic efficiency_mode?
+HA + TEST
 ```
 
-Do not map integer labels from guesswork.
+## Safe current conclusion
 
-## Recommended experiment
+The researched O1200 has a software semantic mapping for **zone mowing speed through `cutMode`**.
 
-For the same area:
+Therefore:
 
 ```text
-1. record all current AreaParameter fields
-2. change exactly one app mowing-mode option
-3. capture setAreaParameter/onAreaParameter
-4. confirm only cutMode changes
-5. restore original option
-6. repeat all app modes
+mowing speed completely unmapped
 ```
 
-Goal:
+is no longer an accurate statement.
+
+## Still open
 
 ```text
-app label → cutMode value
+independent official-app correlation
+independent physical speed validation
+additional possible cutMode/speed values
+cross-model applicability
+relationship to generic efficiency_mode
+whether a separate/global speed command also exists
 ```
 
----
+# Zone obstacle/environment mode — semantic mapping implemented in HA development
 
-# Zone obstacle-height parameter — updated status
-
-Known field:
+Known raw field:
 
 ```text
 obstacleHeight
@@ -555,27 +558,42 @@ Evidence:
 PROTOCOL + CLIENT + TEST
 ```
 
-## Safe conclusion
-
-The raw field exists and is zone-specific.
-
-## Open questions
+The HA development branch maps:
 
 ```text
-official app label
-physical meaning
-unit
-valid range
-interaction with AI/obstacle settings
+1 → flat terrain / short grass <10 cm
+2 → normal environment <15 cm
+3 → high grass environment <20 cm
 ```
 
-Do not assume a raw integer equals centimetres or millimetres.
+and tests both directions.
 
----
+Evidence:
 
-# Zone mowing angle — updated status
+```text
+HA + TEST
+```
 
-Known field:
+## Safe current conclusion
+
+The O1200 raw field is no longer semantically unmapped in software.
+
+The branch interprets it as an environment/obstacle-avoidance mode with three height-threshold labels.
+
+## Still open
+
+```text
+exact official app wording
+physical behavioural effect
+whether the threshold refers to grass/environment height or a sensor obstacle-height threshold
+cross-model applicability
+```
+
+It remains separate from TrueDetect, Recognization, HumanoidAI and other avoidance settings.
+
+# Zone mowing angle — conversion implemented in HA development
+
+Known raw field:
 
 ```text
 angle
@@ -587,21 +605,35 @@ associated with:
 areaID
 ```
 
-Observed/test values include:
-
-```text
-0
-136
-180
-```
-
 Evidence:
 
 ```text
 PROTOCOL + CLIENT + TEST
 ```
 
-## Open question
+The HA development branch implements:
+
+```python
+user_degrees = (270 - raw_angle) % 360
+raw_angle = (270 - user_degrees) % 360
+```
+
+with helper tests including:
+
+```text
+180 → 90°
+145 → 125°
+216 → 54°
+0   → 270°
+```
+
+Evidence:
+
+```text
+HA + TEST
+```
+
+## What remains open
 
 Reviewed upstream also exposes global:
 
@@ -611,7 +643,7 @@ SetCutDirection
 CutDirectionEvent.angle
 ```
 
-Need to determine the relationship:
+The remaining research question is the relationship:
 
 ```text
 AreaParameter.angle
@@ -621,7 +653,7 @@ AreaParameter.angle
 global cut_direction
 ```
 
-Possible hypotheses:
+Possible hypotheses remain:
 
 ```text
 global default vs zone override
@@ -629,13 +661,7 @@ model-generation difference
 separate app controls
 ```
 
-Status:
-
-```text
-OPEN
-```
-
----
+The raw-to-user angle conversion itself should no longer be listed as unresolved.
 
 # Area ID versus zone display name — resolved for tested O1200
 
@@ -1387,28 +1413,35 @@ Now that `areaID` is known in area-parameter traffic, it should be used as a sea
 
 # Updated research priorities
 
-Recommended order after PR #1767/#1768:
+After reconciling PR #1767/#1768 with the Home Assistant branch `feature/ecovacs-area-parameter`, the O1200 area-parameter research priorities are now:
 
 ```text
-1. map mowHeightLevel → exact app/physical cutting height
-2. map cutMode values → app labels/behaviour
-3. map obstacleHeight → app meaning/unit
+1. independently validate the 3.0–8.0 cm / 0.5 cm cutting-height table
+2. validate cutMode 7 = Gentle/0.35 m/s and 4 = Efficient/0.5 m/s against app/device behaviour
+3. validate obstacleHeight 1/2/3 environment-threshold semantics physically
 4. clarify AreaParameter.angle ↔ global cut_direction
 5. confirm areaID ↔ selected-zone start target
-6. map mowing speed
-8. test multi-zone start/order
+6. determine whether any additional/standalone speed control exists
+7. test multi-zone start/order
+8. cross-model area-parameter semantic verification
 9. exact AI app-setting mapping
-9. cross-model area-name/area-parameter support
 10. post-rain delay lifecycle
 11. animal-protection runtime behaviour
 12. scheduling
-13. GOAT map semantics
+13. remaining live-map semantics and production map lifecycle
 14. cross-model progress semantics
 ```
 
-This replaces the earlier priority list where cutting-height command discovery and GOAT cut-mode command discovery were still treated as unmapped.
+The following are **no longer discovery gaps for the researched O1200 HA development**:
 
----
+```text
+mowHeightLevel unit/range/step/software conversion
+cutMode 7/4 semantic speed mapping
+obstacleHeight 1/2/3 software semantic mapping
+raw area-angle ↔ user-degree conversion
+```
+
+They remain appropriate targets for independent physical/app validation and cross-model reproduction.
 
 # Promotion from research to documentation
 
