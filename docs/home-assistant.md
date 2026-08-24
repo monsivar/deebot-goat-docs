@@ -8,6 +8,7 @@ Last reviewed against:
 - Home Assistant branch `feature/ecovacs-mower-progress`
 - mower development branches
 - O1200 area-parameter work in PR #1767/#1768
+- Home Assistant branch `feature/ecovacs-area-parameter`
 
 Date: **2026-08-24**
 
@@ -346,13 +347,13 @@ Development PRs #1767/#1768 introduce:
 settings.area_parameter
 ```
 
-with state:
+with:
 
 ```text
 AreaParameterEvent
 ```
 
-Each zone contains:
+and raw fields:
 
 ```text
 area_id
@@ -362,20 +363,34 @@ obstacle_height
 angle
 ```
 
+The Home Assistant development branch:
+
+```text
+feature/ecovacs-area-parameter
+```
+
+adds:
+
+```text
+semantic conversion/mapping helpers
+helper tests
+a raw set_area_parameter mower service
+planned entity descriptions/translations
+```
+
 Detailed protocol documentation:
 
 [O1200 area parameters](area-parameters.md)
 
-Status:
+Current status:
 
 ```text
-Client fork implemented
-Python tested
+Client fork implemented/tested
 Protocol observed
-Home Assistant not yet exposed
+HA semantic mapping implemented/tested
+HA raw set service implemented
+native per-area entity UX still incomplete
 ```
-
----
 
 # Why area parameters are not simple independent settings
 
@@ -458,133 +473,124 @@ This is the same complete-state principle used for other structured settings.
 
 # Cutting height in Home Assistant
 
-The status has changed.
-
-For O1200 the protocol is now mapped through:
+The HA development branch already defines a user-facing cutting-height model:
 
 ```text
-mow_height_level
+minimum = 3.0 cm
+maximum = 8.0 cm
+step    = 0.5 cm
+unit    = centimetres
 ```
 
-So the limitation is no longer:
+Conversion:
+
+```python
+height_cm = (17 - mow_height_level) / 2
+```
+
+| `mowHeightLevel` | HA semantic height |
+| ---: | ---: |
+| 11 | 3.0 cm |
+| 10 | 3.5 cm |
+| 9 | 4.0 cm |
+| 8 | 4.5 cm |
+| 7 | 5.0 cm |
+| 6 | 5.5 cm |
+| 5 | 6.0 cm |
+| 4 | 6.5 cm |
+| 3 | 7.0 cm |
+| 2 | 7.5 cm |
+| 1 | 8.0 cm |
+
+The conversion is covered by helper tests for all levels `11..1`.
+
+This means a future/native per-area number entity no longer needs to guess the O1200 unit/range/conversion.
+
+## Remaining HA work
+
+The reviewed branch contains the semantic description/helper layer, but complete dynamic per-area native entity wiring is still development work.
+
+Independent physical/app verification and cross-model applicability should also remain separate from the software helper tests.
+
+# Zone mowing speed in Home Assistant
+
+The HA development branch interprets:
 
 ```text
-cutting height command unknown
+cutMode = 7 → Gentle / 0.35 m/s
+cutMode = 4 → Efficient / 0.5 m/s
 ```
 
-Instead, the remaining blocker for a polished Home Assistant entity is the mapping:
+and tests the mapping both directions.
+
+It defines a prospective select labelled conceptually as:
 
 ```text
-raw mowHeightLevel
-       │
-       ▼
-physical/app cutting height
+Area {area_id} mowing speed
 ```
 
-A user-facing `number` entity should only be created once the integration knows:
+This is more accurate than saying mowing speed is wholly unmapped.
+
+The current limitation is:
 
 ```text
-minimum
-maximum
-step
-unit
-level-to-height conversion
+no separate standalone speed command/capability identified
+native per-area select wiring incomplete
+physical/cross-model verification still useful
 ```
 
-## Possible interim designs
+Do not automatically reuse the generic `efficiency_mode` capability.
 
-A low-level developer action could expose the raw tuple.
+# Zone obstacle/environment mode in Home Assistant
 
-A user-facing height entity should wait for validated physical semantics.
-
-This keeps Home Assistant from displaying a misleading "mm" value.
-
----
-
-# Zone cut mode in Home Assistant
-
-Raw field:
+The HA development branch implements the following select semantics:
 
 ```text
-cut_mode
+1 → Flat terrain with short grass <10 cm
+2 → Normal environment <15 cm
+3 → High grass environment <20 cm
 ```
 
-is mapped.
+The helper mapping is tested in both directions.
 
-A future Home Assistant:
+The raw protocol name remains:
 
 ```text
-select
+obstacleHeight
 ```
 
-would be appropriate **if** the valid enum values and labels are known.
+but the HA branch treats it as an **environment/obstacle-avoidance mode**, not as a free numeric centimetre entity.
 
-Current blocker:
-
-```text
-integer value → confirmed app/user-facing meaning
-```
-
-Do not reuse generic `efficiency_mode` merely because the concepts sound similar.
-
----
-
-# Zone obstacle-height parameter in Home Assistant
-
-Raw field:
-
-```text
-obstacle_height
-```
-
-is mapped.
-
-A future entity type depends on the semantics:
-
-```text
-number
-```
-
-if it is a physical stepped height, or potentially:
-
-```text
-select
-```
-
-if ECOVACS exposes discrete categories.
-
-The app/protocol mapping should determine the entity type.
-
----
+Native dynamic per-area entity wiring remains incomplete.
 
 # Zone angle in Home Assistant
 
-Raw area field:
+The HA development branch implements:
 
-```text
-angle
+```python
+user_degrees = (270 - raw_angle) % 360
 ```
 
-is mapped.
+and the reverse conversion.
 
-It should not immediately become a second obvious "Cut direction" entity until its relationship with:
+Tests include:
+
+```text
+raw 180 → 90°
+raw 145 → 125°
+raw 216 → 54°
+raw   0 → 270°
+```
+
+So conversion of the raw O1200 area angle is no longer a blocker.
+
+The remaining design/semantic question is how this per-zone value relates to the existing global:
 
 ```text
 settings.cut_direction
 ```
 
-is understood.
-
-Potential designs include:
-
-```text
-global cut direction
-per-zone mowing angle
-```
-
-if evidence shows they are separate concepts.
-
----
+A future HA implementation should avoid presenting both as apparently identical controls until that relationship is understood.
 
 # Area names and IDs in Home Assistant
 
@@ -1088,13 +1094,18 @@ The static stack is documented in:
 
 ---
 
-# Mowing speed
+# Standalone mowing-speed command
 
-A dedicated mower-speed protocol remains unmapped.
+No **separate standalone** mower-speed protocol/capability has been identified.
 
-Do not create a speculative HA `number` or `select` until the protocol shape is known.
+However, the O1200 HA area-parameter development maps zone speed through:
 
----
+```text
+cutMode 7 → Gentle / 0.35 m/s
+cutMode 4 → Efficient / 0.5 m/s
+```
+
+Therefore the remaining gap is a standalone/global speed control or additional speed values, not complete absence of O1200 zone-speed semantics.
 
 # Entity-type guidelines
 

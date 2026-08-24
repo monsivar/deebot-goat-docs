@@ -897,7 +897,7 @@ Python:
 mow_height_level
 ```
 
-Meaning:
+Wire-level meaning:
 
 ```text
 zone-specific mower cutting-height level
@@ -907,18 +907,46 @@ Status:
 
 **Observed / Fork / Tested**
 
-Still unresolved:
+## HA semantic mapping
 
-```text
-raw level → physical unit/height
-full range
-step
-cross-model mapping
+The Home Assistant development branch maps:
+
+```python
+height_cm = (17 - level) / 2
 ```
 
-Do not interpret a raw value such as `10` as `10 mm` without evidence.
+with:
 
----
+```text
+3.0–8.0 cm
+0.5 cm step
+```
+
+| `mowHeightLevel` | HA semantic height |
+| ---: | ---: |
+| 11 | 3.0 cm |
+| 10 | 3.5 cm |
+| 9 | 4.0 cm |
+| 8 | 4.5 cm |
+| 7 | 5.0 cm |
+| 6 | 5.5 cm |
+| 5 | 6.0 cm |
+| 4 | 6.5 cm |
+| 3 | 7.0 cm |
+| 2 | 7.5 cm |
+| 1 | 8.0 cm |
+
+Status:
+
+**HA semantic mapping implemented/tested**
+
+Still requiring evidence:
+
+```text
+complete independent physical validation
+confirmation of protocol-valid range beyond UI assumptions
+cross-model mapping
+```
 
 # `cutMode`
 
@@ -934,7 +962,7 @@ Python:
 cut_mode
 ```
 
-Meaning:
+Wire-level meaning:
 
 ```text
 zone-specific raw cut-mode value
@@ -944,15 +972,18 @@ Status:
 
 **Observed / Fork / Tested**
 
-Unresolved:
+## HA semantic mapping
 
 ```text
-integer → official app label/behaviour
+7 → Gentle / 0.35 m/s
+4 → Efficient / 0.5 m/s
 ```
 
-Do not automatically map it to generic `efficiency_mode`.
+The HA helper tests verify both mapping directions.
 
----
+This is currently the known O1200 zone-speed representation.
+
+Do not automatically map it to generic `efficiency_mode`, and do not infer that a separate standalone speed command exists.
 
 # `obstacleHeight`
 
@@ -972,9 +1003,17 @@ Status:
 
 **Observed / Fork / Tested**
 
-The name suggests obstacle-height-related zone configuration, but exact unit/range/physical semantics remain unverified.
+## HA semantic mapping
 
----
+```text
+1 → short-grass / flat-terrain environment <10 cm
+2 → normal environment <15 cm
+3 → high-grass environment <20 cm
+```
+
+The mapping is tested in both directions.
+
+Treat these as semantic environment/avoidance labels from the HA development branch, not as proof that the raw integer itself is a centimetre measurement.
 
 # Area `angle`
 
@@ -990,27 +1029,39 @@ Python:
 angle
 ```
 
-Status:
-
-**Observed / Fork / Tested**
-
 Associated with:
 
 ```text
 areaID
 ```
 
-and therefore zone-specific in this protocol family.
+Status:
 
-Its exact relationship with global:
+**Observed / Fork / Tested**
+
+## HA semantic conversion
+
+```python
+user_degrees = (270 - raw_angle) % 360
+raw_angle = (270 - user_degrees) % 360
+```
+
+Tested examples:
+
+```text
+180 → 90°
+145 → 125°
+216 → 54°
+0   → 270°
+```
+
+The remaining open question is the relationship with global:
 
 ```text
 GetCutDirection / SetCutDirection
 ```
 
-remains open.
-
----
+—not conversion of the per-area raw value itself.
 
 # O1200 area-parameter capability
 

@@ -11,7 +11,7 @@ Last reviewed against:
 - [`PR #1776`](https://github.com/DeebotUniverse/client.py/pull/1776)
 - [`PR #1778`](https://github.com/DeebotUniverse/client.py/pull/1778)
 
-Date: **2026-08-23**
+Date: **2026-08-24**
 
 ## Scope
 
@@ -155,64 +155,62 @@ Status:
 
 # Cutting height
 
-For the O1200 development implementation, cutting height is no longer an unknown protocol area.
-
-It is represented by:
+For the researched O1200, cutting height is represented by:
 
 ```text
 mowHeightLevel
 ```
 
-and normalised as:
+normalised as:
 
 ```text
 mow_height_level
 ```
 
-inside:
+inside the zone-specific:
 
 ```text
 AreaParameter
 ```
 
-This is a **zone-specific** value associated with:
-
-```text
-areaID
-```
-
-Status:
+Client status:
 
 **Protocol observed / Fork implemented / Python tested**
 
-## Remaining limitation
-
-The complete mapping from raw level to physical/user-facing height is not yet fully documented.
-
-Do not automatically interpret:
+The Home Assistant development branch `feature/ecovacs-area-parameter` adds a tested semantic conversion:
 
 ```text
-mowHeightLevel = 10
+3.0–8.0 cm
+0.5 cm steps
 ```
 
-as:
+using:
 
-```text
-10 mm
+```python
+height_cm = (17 - mow_height_level) / 2
 ```
 
-without independent evidence.
+| `mowHeightLevel` | HA semantic height |
+| ---: | ---: |
+| 11 | 3.0 cm |
+| 10 | 3.5 cm |
+| 9 | 4.0 cm |
+| 8 | 4.5 cm |
+| 7 | 5.0 cm |
+| 6 | 5.5 cm |
+| 5 | 6.0 cm |
+| 4 | 6.5 cm |
+| 3 | 7.0 cm |
+| 2 | 7.5 cm |
+| 1 | 8.0 cm |
 
-Remaining research includes:
+HA semantic status:
 
-- valid range
-- physical unit
-- level-to-height mapping
-- model differences
+**Implemented/tested**
 
----
+Remaining work is now limited to independent physical/app validation of the complete table and cross-model verification.
 
-# Zone-specific cut mode
+# Zone-specific cut mode / mowing speed
 
 The O1200 area-parameter protocol contains:
 
@@ -226,33 +224,33 @@ normalised as:
 cut_mode
 ```
 
-Status:
-
-**Protocol observed / Fork implemented / Python tested**
-
-This means a raw zone-specific cut-mode field is mapped.
-
-However, the complete mapping between integer values and official app labels is still incomplete.
-
-Do not automatically equate:
+The Home Assistant development branch maps:
 
 ```text
-cutMode
+7 → Gentle / 0.35 m/s
+4 → Efficient / 0.5 m/s
 ```
 
-with the generic:
+and tests both directions.
+
+Therefore the researched O1200 has a **zone mowing-speed semantic mapping through `cutMode`**.
+
+This does not prove a separate standalone speed command exists, and it should not automatically be equated with generic:
 
 ```text
 efficiency_mode
 ```
 
-capability.
+Status:
 
-They may represent different concepts or different device generations.
+```text
+Protocol observed
+Client fork implemented/tested
+HA semantic mapping implemented/tested
+physical/cross-model validation still useful
+```
 
----
-
-# Zone-specific obstacle height
+# Zone-specific obstacle/environment mode
 
 The O1200 area-parameter protocol contains:
 
@@ -266,11 +264,17 @@ normalised as:
 obstacle_height
 ```
 
-Status:
+The HA development mapping is:
 
-**Protocol observed / Fork implemented / Python tested**
+```text
+1 → flat terrain / short grass <10 cm
+2 → normal environment <15 cm
+3 → high-grass environment <20 cm
+```
 
-This is distinct from the separate boolean/AI settings:
+The mapping is tested both ways.
+
+It remains distinct from:
 
 ```text
 true_detect
@@ -280,9 +284,7 @@ narrow_adapt
 animal_protection
 ```
 
-The exact user-facing meaning and physical unit of `obstacleHeight` remain to be established.
-
----
+The remaining uncertainty is primarily the exact physical/app interpretation and cross-model applicability, rather than the absence of a semantic mapping.
 
 # Zone-specific angle
 
@@ -298,29 +300,30 @@ associated with a specific:
 areaID
 ```
 
-Observed/test values include examples such as:
+The HA development conversion is:
 
-```text
-0
-136
-180
+```python
+user_degrees = (270 - raw_angle) % 360
 ```
+
+with reverse conversion using the same expression.
+
+Automated helper tests cover several values.
 
 Status:
 
-**Protocol observed / Fork implemented / Python tested**
+```text
+raw field mapped
+HA semantic conversion implemented/tested
+```
 
-This should be distinguished from the upstream global:
+The unresolved question is the relationship between this per-zone angle and upstream global:
 
 ```text
 settings.cut_direction
 ```
 
-until their exact relationship has been established.
-
-Possible relationships include global default versus per-zone override or model-generation differences.
-
----
+—not how to convert the O1200 raw area-angle field itself.
 
 # Complete-tuple write behaviour
 
@@ -1005,39 +1008,38 @@ is configuration.
 
 ---
 
-# Settings that still require protocol research
+# Settings that still require protocol/semantic research
 
-The status has changed after the area-parameter PRs.
-
-The following are **not** correctly described as completely unmapped for O1200 anymore:
+For the researched O1200, the following are now mapped substantially further than raw-field discovery:
 
 ```text
-cutting height
-zone cut mode
-zone obstacle-height parameter
-zone mowing angle
+mowHeightLevel
+    → 3.0–8.0 cm in 0.5 cm steps (HA semantic mapping)
+
+cutMode
+    → 7 Gentle / 0.35 m/s
+    → 4 Efficient / 0.5 m/s
+
+obstacleHeight
+    → 1 short-grass <10 cm
+    → 2 normal <15 cm
+    → 3 high-grass <20 cm
+
+AreaParameter.angle
+    → user degrees via (270 - raw) % 360
 ```
 
-Their raw protocol fields are known.
-
-Remaining semantic mapping work includes:
+Remaining work includes:
 
 ```text
-mowHeightLevel → physical height/unit
-cutMode → app label/behaviour
-obstacleHeight → app label/unit/physical effect
+independent physical/app validation of these mappings
+confirmation of complete valid raw ranges
+cross-model applicability
 AreaParameter.angle ↔ global cut_direction relationship
-```
-
-A major mower setting that still remains unmapped is:
-
-```text
-mowing speed
+whether any separate standalone mowing-speed command exists
 ```
 
 Other important gaps include scheduling and additional global mower behaviour not yet represented by known capabilities.
-
----
 
 # Model scope
 

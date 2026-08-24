@@ -11,7 +11,7 @@ Last reviewed against:
 - Home Assistant branch `feature/ecovacs-mower-progress`
 - GOAT protocol observations and physical-device tests from this research project
 
-Date: **2026-08-23**
+Date: **2026-08-24**
 
 ## Purpose
 
@@ -135,11 +135,11 @@ Likewise, a Home Assistant test can prove that an event is exposed correctly as 
 | Emergency-stop flag | — | ✓ | ✓ | field mapped | behaviour not mapped | Not yet exposed | Low/Medium |
 | Locked-state flag | — | ✓ | ✓ | field mapped | child-lock relation unknown | Not yet exposed | Low/Medium |
 | PIN-code flag | — | ✓ | ✓ | field mapped | semantics unknown | Not yet exposed | Low |
-| O1200 `mowHeightLevel` | — | ✓ | ✓ | ✓ | App/protocol correlation | Not yet exposed | High for raw O1200 field; physical level mapping incomplete |
-| O1200 `cutMode` | — | ✓ | ✓ | ✓ | App/protocol correlation | Not yet exposed | High for raw field; enum semantics incomplete |
-| O1200 `obstacleHeight` | — | ✓ | ✓ | ✓ | App/protocol correlation | Not yet exposed | High for raw field; physical semantics incomplete |
-| O1200 area `angle` | — | ✓ | ✓ | ✓ | App/protocol correlation | Not yet exposed | High for raw field; relation to global cut direction incomplete |
-| Mowing speed | — | — | — | — | requires mapping | — | Not mapped |
+| O1200 `mowHeightLevel` | — | ✓ | ✓ | ✓ | App/protocol + HA semantic mapping | HA helper mapping tested; native per-area entity incomplete | High for software mapping 11→1 = 3.0→8.0 cm; physical/cross-model validation remains |
+| O1200 `cutMode` / zone speed | — | ✓ | ✓ | ✓ | HA semantic mapping | HA helper mapping tested; native per-area select incomplete | 7 = Gentle/0.35 m/s, 4 = Efficient/0.5 m/s in HA development |
+| O1200 `obstacleHeight` | — | ✓ | ✓ | ✓ | HA semantic mapping | HA helper mapping tested; native per-area select incomplete | 1/2/3 environment-threshold mapping implemented/tested |
+| O1200 area `angle` | — | ✓ | ✓ | ✓ | HA semantic conversion | HA helper conversion tested; native per-area entity incomplete | Raw↔degrees mapped; relation to global cut direction incomplete |
+| Standalone mowing-speed command | — | — | — | — | not identified | — | Zone speed mapped through `cutMode`; no separate/global speed command identified |
 | Scheduling | Partial generic ecosystem only | — | — | GOAT mapping incomplete | App feature area | — | Not mapped for GOAT |
 | Mower `onMapTrace` grouped parser | — | ✓ #1567 | ✓ | protocol capture | A1600 direct + O1200 analysis | — | Open PR; typed geometry established |
 | O1200 static `onMI` boundary | — | ✓ #1782 | ✓ | ✓ sanitized fixtures | ✓ protocol/reference viewer | — | Draft; 2,336-point static geometry |
@@ -152,6 +152,112 @@ Likewise, a Home Assistant test can prove that an event is exposed correctly as 
 ---
 
 
+
+# O1200 area-parameter semantic mapping — Home Assistant development
+
+Branch:
+
+```text
+monsivar/core
+feature/ecovacs-area-parameter
+```
+
+The branch adds explicit helper mappings and automated tests beyond the raw client protocol implementation.
+
+## Cutting height
+
+The helper tests cover the complete implemented table:
+
+| `mowHeightLevel` | HA semantic height |
+| ---: | ---: |
+| 11 | 3.0 cm |
+| 10 | 3.5 cm |
+| 9 | 4.0 cm |
+| 8 | 4.5 cm |
+| 7 | 5.0 cm |
+| 6 | 5.5 cm |
+| 5 | 6.0 cm |
+| 4 | 6.5 cm |
+| 3 | 7.0 cm |
+| 2 | 7.5 cm |
+| 1 | 8.0 cm |
+
+HA constants define:
+
+```text
+min  = 3.0 cm
+max  = 8.0 cm
+step = 0.5 cm
+```
+
+Status:
+
+**HA semantic mapping implemented / HA helper tested**
+
+## Cut mode / zone speed
+
+Tested mapping:
+
+```text
+7 → Gentle / 0.35 m/s
+4 → Efficient / 0.5 m/s
+```
+
+Status:
+
+**HA semantic mapping implemented / HA helper tested**
+
+## Obstacle/environment mode
+
+Tested mapping:
+
+```text
+1 → short grass / flat terrain <10 cm
+2 → normal environment <15 cm
+3 → high grass environment <20 cm
+```
+
+Status:
+
+**HA semantic mapping implemented / HA helper tested**
+
+## Area angle
+
+Tested examples:
+
+```text
+180 → 90°
+145 → 125°
+216 → 54°
+0   → 270°
+```
+
+using:
+
+```python
+(270 - raw_angle) % 360
+```
+
+Status:
+
+**HA semantic conversion implemented / HA helper tested**
+
+## Important test boundary
+
+These tests verify the **software semantic mapping**.
+
+They do not by themselves prove:
+
+```text
+all physical blade heights independently measured
+all speed values physically instrumented
+all environment thresholds physically validated
+same mappings on every GOAT model
+```
+
+The branch also contains a raw `set_area_parameter` service path, but native per-area number/select entity exposure is still incomplete.
+
+---
 
 # GOAT static map stack
 
@@ -1252,17 +1358,22 @@ Remaining work includes clarifying its relationship to upstream global:
 cut_direction
 ```
 
-## Mowing speed
+## Standalone mowing speed
 
-A dedicated mower-speed protocol remains unidentified.
+A separate/global mower-speed command remains unidentified.
+
+For the researched O1200, however, the HA area-parameter branch implements zone-speed semantics through:
+
+```text
+cutMode 7 → Gentle / 0.35 m/s
+cutMode 4 → Efficient / 0.5 m/s
+```
 
 Status:
 
-**Not mapped**
+**Zone speed semantic mapping implemented/tested in HA development / standalone speed command not mapped**
 
 See [O1200 area parameters](area-parameters.md).
-
----
 
 # PR #1776 / #1778 validation snapshot
 

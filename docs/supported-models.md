@@ -583,7 +583,7 @@ until their relationship is conclusively established.
 
 The reviewed upstream baseline does not expose a dedicated cutting-height setting.
 
-However, O1200 development work maps:
+O1200 development maps:
 
 ```text
 mowHeightLevel
@@ -595,19 +595,24 @@ inside:
 AreaParameter
 ```
 
-Therefore the correct O1200 development status is:
+and the HA development branch adds the tested semantic conversion:
+
+```text
+levels 11 → 1
+heights 3.0 → 8.0 cm
+step 0.5 cm
+```
+
+Current O1200 development status:
 
 ```text
 raw protocol field mapped
-GET/SET/PUSH implemented
-physical height mapping incomplete
+GET/SET/PUSH implemented/tested
+HA semantic height conversion implemented/tested
+independent physical/cross-model validation incomplete
 ```
 
-It should not be described as completely "not mapped".
-
----
-
-# O1200 cut mode
+# O1200 cut mode / zone speed
 
 The raw zone field:
 
@@ -615,21 +620,26 @@ The raw zone field:
 cutMode
 ```
 
-is implemented in development.
+is implemented in client development.
 
-Its integer-to-app-label semantics remain incomplete.
+HA development maps:
 
-It should not automatically be equated with a generic:
+```text
+7 → Gentle / 0.35 m/s
+4 → Efficient / 0.5 m/s
+```
+
+and tests the mapping.
+
+This should not automatically be equated with generic:
 
 ```text
 efficiency_mode
 ```
 
-capability.
+and should not be generalized to other GOAT models without evidence.
 
----
-
-# O1200 obstacle-height parameter
+# O1200 obstacle/environment mode
 
 Development area parameters include:
 
@@ -637,23 +647,36 @@ Development area parameters include:
 obstacleHeight
 ```
 
-The raw field is known.
+HA development maps:
 
-Its exact unit, valid range and physical meaning remain under research.
+```text
+1 → short grass / flat terrain <10 cm
+2 → normal environment <15 cm
+3 → high grass environment <20 cm
+```
 
----
+The mapping is tested in software.
 
-# Mowing speed
+Exact physical behaviour and cross-model applicability remain research items.
 
-A dedicated mower-speed protocol/capability remains unmapped in the documented work.
+# O1200 mowing speed
+
+No separate/global mower-speed command is documented.
+
+However, O1200 HA area-parameter development interprets zone speed through:
+
+```text
+cutMode 7 → Gentle / 0.35 m/s
+cutMode 4 → Efficient / 0.5 m/s
+```
 
 Status:
 
 ```text
-Open research
+zone-speed semantic mapping implemented/tested in HA development
+standalone/global speed capability not identified
+cross-model verification open
 ```
-
----
 
 # Common consumable lifetime
 

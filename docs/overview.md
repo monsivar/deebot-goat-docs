@@ -512,15 +512,15 @@ See:
 
 ---
 
-# O1200 cutting height is protocol-mapped
+# O1200 cutting-height semantics are mapped in HA development
 
-The O1200 development implementation maps cutting-height state through:
+The O1200 protocol field:
 
 ```text
 mowHeightLevel
 ```
 
-normalised as:
+is normalised as:
 
 ```text
 mow_height_level
@@ -532,50 +532,63 @@ inside:
 AreaParameter
 ```
 
-Therefore the correct current status is:
+PR #1767/#1768 establishes the raw protocol GET/SET/PUSH path.
+
+The Home Assistant development branch:
 
 ```text
-protocol field known
-fork implemented
-Python tested
+feature/ecovacs-area-parameter
+```
+
+adds a tested semantic conversion:
+
+```python
+height_cm = (17 - mow_height_level) / 2
+```
+
+with the supported HA range:
+
+```text
+3.0–8.0 cm
+step 0.5 cm
+```
+
+| `mowHeightLevel` | HA semantic height |
+| ---: | ---: |
+| 11 | 3.0 cm |
+| 10 | 3.5 cm |
+| 9 | 4.0 cm |
+| 8 | 4.5 cm |
+| 7 | 5.0 cm |
+| 6 | 5.5 cm |
+| 5 | 6.0 cm |
+| 4 | 6.5 cm |
+| 3 | 7.0 cm |
+| 2 | 7.5 cm |
+| 1 | 8.0 cm |
+
+The correct status is therefore:
+
+```text
+protocol field mapped
+client GET/SET/PUSH implemented/tested
+HA semantic conversion implemented/tested
 zone-specific
 ```
 
-The remaining question is the mapping:
+Still open:
 
 ```text
-mowHeightLevel
-      │
-      ▼
-actual app/physical cutting height
-```
-
-Unknowns include:
-
-```text
-physical unit
-complete valid range
-level-to-height mapping
+independent physical/app validation of the complete table
+confirmation that levels 1–11 are the complete protocol range
 cross-model compatibility
 ```
 
-So research has moved from:
+The semantic mapping should not be generalized to another GOAT model without evidence.
 
-```text
-find the command
-```
+# O1200 `cutMode` has a tested HA speed interpretation
 
-to:
-
-```text
-decode the values
-```
-
----
-
-# O1200 cut mode is protocol-mapped at the raw level
-
-The same area-parameter record contains:
+The area-parameter record contains:
 
 ```text
 cutMode
@@ -587,17 +600,26 @@ normalised as:
 cut_mode
 ```
 
-This proves that a zone-specific raw cut-mode field exists.
-
-It does **not** yet establish the complete mapping between integer values and:
+The Home Assistant area-parameter development maps:
 
 ```text
-official ECOVACS app labels
-mowing behaviour
-efficiency/pattern terminology
+7 → Gentle / 0.35 m/s
+4 → Efficient / 0.5 m/s
 ```
 
-It should not automatically be equated with the generic:
+and tests both directions of that mapping.
+
+This is stronger than describing `cutMode` as an unknown raw enum.
+
+The careful current status is:
+
+```text
+raw protocol field mapped
+HA semantic mapping implemented/tested
+physical/app interpretation should still be independently validated
+```
+
+It should still not automatically be equated with the generic:
 
 ```text
 efficiency_mode
@@ -605,11 +627,11 @@ efficiency_mode
 
 capability.
 
----
+There is also no evidence here of a separate standalone mower-speed command; the known O1200 zone-speed interpretation is carried through `cutMode`.
 
-# O1200 obstacle-height parameter
+# O1200 `obstacleHeight` has a tested HA environment-mode mapping
 
-The zone record also contains:
+The zone record contains:
 
 ```text
 obstacleHeight
@@ -621,20 +643,27 @@ normalised as:
 obstacle_height
 ```
 
-This is a known protocol field.
-
-Its exact:
+The Home Assistant development maps:
 
 ```text
-app label
-unit
-valid range
-physical effect
+1 → short-grass / flat terrain <10 cm
+2 → normal environment <15 cm
+3 → high-grass environment <20 cm
 ```
 
-remain under investigation.
+and tests both directions of the mapping.
 
-It should be kept separate from the boolean/AI settings:
+This should be described as an implemented/tested **HA semantic mapping**, not as an independently measured physical obstacle-height scale.
+
+The remaining work is primarily:
+
+```text
+independent app/device validation
+exact physical behavioural interpretation
+cross-model applicability
+```
+
+It remains separate from:
 
 ```text
 TrueDetect
@@ -644,9 +673,7 @@ NarrowAdapt
 Animal protection
 ```
 
----
-
-# O1200 zone angle
+# O1200 zone-angle conversion is mapped in HA development
 
 The area record contains:
 
@@ -660,38 +687,37 @@ for a specific:
 areaID
 ```
 
-This appears to represent a zone-specific mowing direction/angle.
+The Home Assistant development implements and tests:
 
-Reviewed upstream also has global:
-
-```text
-settings.cut_direction
+```python
+user_degrees = (270 - raw_angle) % 360
+raw_angle = (270 - user_degrees) % 360
 ```
 
-The relationship between:
+Examples covered by tests include:
+
+```text
+raw 180 → 90°
+raw 145 → 125°
+raw 216 → 54°
+raw   0 → 270°
+```
+
+The conversion between the raw per-area field and the user-facing angle is therefore no longer an open software-semantic question.
+
+What remains open is the architectural relationship between:
 
 ```text
 AreaParameter.angle
 ```
 
-and:
+and the upstream global:
 
 ```text
-CutDirectionEvent.angle
+settings.cut_direction
 ```
 
-is not yet fully established.
-
-Possible explanations include:
-
-```text
-global default vs zone override
-older/global protocol vs newer zone-specific protocol
-model-generation difference
-different app functions
-```
-
----
+Possible explanations still include a global default versus per-zone override, model-generation differences, or separate app functions.
 
 # O1200 area-parameter state flow
 

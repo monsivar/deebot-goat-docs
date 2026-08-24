@@ -9,7 +9,7 @@ Last reviewed against:
 - Home Assistant branch `feature/ecovacs-mower-progress`
 - documented GOAT protocol and physical-device observations
 
-Date: **2026-08-23**
+Date: **2026-08-24**
 
 ## Purpose
 
@@ -45,11 +45,11 @@ Major known limitations currently include:
 - mower-specific settings still residing only in development branches
 - incomplete cross-model verification
 - device-specific same-name command routing remains an open PR rather than reviewed upstream architecture
-- O1200 cutting-height protocol mapped, but raw `mowHeightLevel` → physical height mapping incomplete
-- O1200 `cutMode` mapped as a raw zone parameter, but its app/user-facing enum semantics remain incomplete
-- O1200 `obstacleHeight` mapped as a raw zone parameter, but its exact physical meaning/unit remains incomplete
-- relationship between O1200 zone `angle` and global `cut_direction` remains incomplete
-- mowing speed not mapped
+- O1200 cutting-height semantic mapping is implemented/tested in HA development; independent physical validation and cross-model support remain incomplete
+- O1200 `cutMode` is mapped in HA development to Gentle/0.35 m/s and Efficient/0.5 m/s; independent physical/cross-model validation remains
+- O1200 `obstacleHeight` has a tested HA environment-threshold mapping; exact physical behaviour and cross-model support remain incomplete
+- O1200 area-angle raw↔degree conversion is implemented/tested; relationship to global `cut_direction` remains incomplete
+- no separate standalone/global mowing-speed command has been identified beyond the O1200 zone-speed `cutMode` mapping
 - no separate explicit ECOVACS ETA field identified
 - O1200 progress semantics not yet cross-model verified
 - O1200 area names/IDs are mapped in development via `getAreaSet`, but selected-zone start and full zone geometry remain separate gaps
@@ -295,74 +295,69 @@ may correspond to a lawn zone in some flows, but that mapping should be confirme
 
 ---
 
-# O1200 cutting height is protocol-mapped, but physical semantics remain incomplete
+# O1200 cutting-height software semantics are mapped; physical/cross-model validation remains
 
-The status of cutting height changed with the area-parameter development work.
-
-For the researched O1200, the protocol field is:
-
-```text
-mowHeightLevel
-```
-
-inside a zone-specific:
-
-```text
-AreaParameter
-```
-
-associated with:
-
-```text
-areaID
-```
-
-Read/write/push support is implemented through:
+For the researched O1200, raw protocol support is implemented through:
 
 ```text
 getAreaParameter
 setAreaParameter
 onAreaParameter
+mowHeightLevel
 ```
 
-Status:
-
-**Protocol observed / Fork implemented / Python tested**
-
-Therefore it is no longer correct to describe O1200 cutting height as:
+The HA development branch additionally implements/tests:
 
 ```text
-protocol unknown
+3.0–8.0 cm
+0.5 cm steps
 ```
 
-or:
+with:
+
+```python
+height_cm = (17 - mowHeightLevel) / 2
+```
+
+| `mowHeightLevel` | HA semantic height |
+| ---: | ---: |
+| 11 | 3.0 cm |
+| 10 | 3.5 cm |
+| 9 | 4.0 cm |
+| 8 | 4.5 cm |
+| 7 | 5.0 cm |
+| 6 | 5.5 cm |
+| 5 | 6.0 cm |
+| 4 | 6.5 cm |
+| 3 | 7.0 cm |
+| 2 | 7.5 cm |
+| 1 | 8.0 cm |
+
+Therefore the old limitation:
 
 ```text
-not mapped
+raw level → height mapping unknown
 ```
+
+is no longer accurate for the software semantic layer.
 
 ## Remaining limitation
 
-The raw value still needs a complete physical/user-facing mapping.
+Still unproven by the helper tests alone:
 
-Open questions include:
+- independent physical/app verification of every level
+- whether raw levels `1..11` are the complete protocol-valid range
+- firmware/region differences
+- applicability to other GOAT models
 
-- valid level range
-- minimum/maximum physical cutting height
-- physical unit
-- step size
-- whether the level mapping is linear
-- cross-model compatibility
-
-For example:
+Status:
 
 ```text
-mowHeightLevel = 10
+O1200 protocol mapping: implemented/tested
+HA semantic conversion: implemented/tested
+complete independent physical validation: incomplete
+cross-model validation: incomplete
 ```
-
-is a known raw value, but should not be labelled as `10 mm` without evidence.
-
----
 
 # Global cutting direction versus area angle
 
@@ -403,103 +398,85 @@ They should not be treated as identical until correlated.
 
 ---
 
-# O1200 zone cut mode is mapped at the raw protocol level
+# O1200 zone speed is mapped through `cutMode` in HA development
 
-The O1200 area-parameter record contains:
-
-```text
-cutMode
-```
-
-normalised as:
-
-```text
-cut_mode
-```
-
-Status:
-
-**Protocol observed / Fork implemented / Python tested**
-
-The remaining limitation is not discovery of the field.
-
-It is the mapping between integer values and:
-
-- ECOVACS app labels
-- mowing behaviour
-- possible efficiency/pattern concepts
-
-Do not automatically equate:
+The O1200 area-parameter field:
 
 ```text
 cutMode
 ```
 
-with the generic client:
+has a tested HA semantic mapping:
 
 ```text
-efficiency_mode
+7 → Gentle / 0.35 m/s
+4 → Efficient / 0.5 m/s
 ```
 
-without evidence.
+Therefore the remaining limitation is no longer absence of a value mapping.
 
----
+Still open:
 
-# O1200 zone obstacle-height parameter is mapped at the raw protocol level
+```text
+independent app/physical confirmation
+additional possible cutMode values
+cross-model compatibility
+relationship to generic efficiency_mode
+```
 
-The O1200 area-parameter record contains:
+No separate standalone/global speed command has been identified.
+
+# O1200 zone obstacle/environment mapping exists, but physical semantics need validation
+
+The O1200 raw field:
 
 ```text
 obstacleHeight
 ```
 
-normalised as:
+has a tested HA development mapping:
 
 ```text
-obstacle_height
+1 → short-grass / flat-terrain environment <10 cm
+2 → normal environment <15 cm
+3 → high-grass environment <20 cm
 ```
+
+This is stronger than an unknown raw integer.
+
+Remaining limitations are:
+
+```text
+exact ECOVACS app wording
+precise physical behavioural meaning
+whether the threshold is grass/environment height rather than direct obstacle sensor height
+cross-model applicability
+```
+
+It remains distinct from TrueDetect, Recognization, HumanoidAI and other AI controls.
+
+# No separate standalone mowing-speed command is mapped
+
+The previous statement:
+
+```text
+mowing speed is not mapped
+```
+
+was too broad.
+
+For the researched O1200, the HA area-parameter branch maps **zone mowing speed through `cutMode`**:
+
+```text
+7 → Gentle / 0.35 m/s
+4 → Efficient / 0.5 m/s
+```
+
+What remains unmapped is a separate/global speed command or any additional speed levels outside this zone `cutMode` interpretation.
 
 Status:
 
-**Protocol observed / Fork implemented / Python tested**
-
-Its exact:
-
-- app wording
-- physical meaning
-- valid range
-- unit
-
-remain incompletely documented.
-
-It is also distinct from boolean/AI controls such as TrueDetect, Recognization and HumanoidAI.
-
----
-
-# Mowing speed is not mapped
-
-No dedicated GOAT mowing-speed capability has been confirmed.
-
-If the app provides speed choices, the research still needs to establish:
-
-```text
-app option
-   │
-   ▼
-wire command
-   │
-   ▼
-raw value
-   │
-   ▼
-physical behaviour
-```
-
-Status:
-
-**Not mapped**
-
----
+**O1200 zone-speed semantic mapping implemented/tested in HA development / standalone speed capability not identified**
 
 # Current-job progress is not upstream
 
