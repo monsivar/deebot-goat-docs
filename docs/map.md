@@ -633,6 +633,22 @@ metadata.
 
 Unsupported records fail closed or remain outside the public geometry event.
 
+## PR #1782 summary and file breakdown
+
+| Component | Scope | Upstream PR files |
+| :--- | :--- | :--- |
+| Message decoding | JSON `onMI` parser | `deebot_client/messages/json/map/on_mi.py` |
+| Event model | Typed static map event | `deebot_client/events/map.py` (`MowerStaticMapEvent`) |
+| Compression | Trimmed LZMA-Alone & Base64 decoding | `src/util.rs`, `tests/rs/test_util.py` |
+| Test fixtures | Sanitized 876-char & 52-char representations | `tests/fixtures/goat_map/onmi_info_representations.json` |
+| Unit tests | RLE expansion & boundary point assertions | `tests/messages/json/map/test_on_mi.py` |
+
+Key validation assertions established by PR #1782:
+- 2,336 boundary points parsed deterministically from request-associated `onMI`.
+- Exact coordinate bounds verified: `x = -34350..5750`, `y = -24350..21350`.
+- Cadence-associated 52-character representation filtered out safely (0 events emitted).
+- Strict fail-closed error handling for corrupted Base64 or mismatched decompressed payload length.
+
 ---
 
 # PR #1788 — O1200 work areas
