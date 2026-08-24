@@ -265,6 +265,7 @@ The strongest current implementation and test coverage includes:
 - common mower settings
 - device-specific command-routing architecture under development in PR #1772
 - O1200 zone-specific area-parameter protocol (`mowHeightLevel`, `cutMode`, `obstacleHeight`, `angle`)
+- O1200 area-parameter semantic mappings implemented/tested in the Home Assistant development branch (3.0–8.0 cm cutting height, speed modes, obstacle modes and area-angle conversion)
 - O1200 static-map parser/rendering stack under development (#1782/#1788/#1789)
 - O1200 global rain, AI, animal-protection and mower-volume protocol
 - O1200 area-name/ID mapping through `getAreaSet` / `RoomsEvent`
@@ -280,20 +281,22 @@ See [Mower settings](docs/settings.md).
 
 Important areas still requiring additional work include:
 
-- mapping O1200 `mowHeightLevel` values to physical/app cutting heights
-- decoding O1200 `cutMode` values and their app/user-facing meaning
-- determining the exact meaning/unit of O1200 `obstacleHeight`
+- independently validating the complete O1200 cutting-height table against app/physical mower behaviour
+- confirming whether the O1200 height range `mowHeightLevel` 11→1 (3.0–8.0 cm in 0.5 cm steps) is the complete protocol range
+- independently validating the `cutMode` interpretation `7 → Gentle / 0.35 m/s` and `4 → Efficient / 0.5 m/s`
+- independently validating the `obstacleHeight` environment thresholds used by the HA development mapping
 - clarifying the relationship between zone-specific `angle` and global `cut_direction`
-- mowing speed
+- confirming whether any additional/standalone mowing-speed command exists beyond the zone `cutMode` speed mapping
 - O1200 selected-zone start command and confirmation that its target uses the known area IDs
 - multi-zone start behaviour and ordering
+- cross-model verification of area-parameter semantic mappings
 - cross-model area-name support
 - exact ECOVACS app mapping of AI settings
 - physical effect of each avoidance/AI setting
 - complete post-rain delay lifecycle
 - animal-protection runtime behaviour
 - mower scheduling
-- GOAT-specific map semantics
+- remaining GOAT live-map semantics and production map lifecycle
 - cross-model verification
 
 See:
@@ -427,25 +430,34 @@ The important part is that the documentation states which stages have actually b
 
 Protocol research is especially useful when only **one variable is changed at a time**.
 
-For example, when mapping the physical meaning of an already identified field such as `mowHeightLevel`:
+For example, when independently validating the existing O1200 height mapping:
 
 ```text
-record current app height + protocol state
-              │
-              ▼
-change cutting height one step
-              │
-              ▼
-capture onAreaParameter / getAreaParameter
-              │
-              ▼
+select one known app height
+        │
+        ▼
 record mowHeightLevel
-              │
-              ▼
-repeat across available height choices
+        │
+        ▼
+verify physical/app height
+        │
+        ▼
+repeat across 3.0–8.0 cm
+        │
+        ▼
+confirm or correct the HA semantic table
 ```
 
-This distinction matters: the O1200 cutting-height **protocol field is already mapped**; the remaining task is to map its raw levels to the exact app/physical height semantics.
+The Home Assistant development branch already implements and tests the software mapping:
+
+```text
+mowHeightLevel 11 → 3.0 cm
+...
+mowHeightLevel 1  → 8.0 cm
+step              → 0.5 cm
+```
+
+The remaining research question is **independent physical/app validation and cross-model applicability**, not discovery of the O1200 conversion formula.
 
 Useful contributions include:
 
