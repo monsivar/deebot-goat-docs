@@ -268,6 +268,21 @@ It is a parser/data-model PR.
 
 That separation is what makes #1789 able to integrate mower geometry later into the shared Map pipeline.
 
+## PR #1567 summary and file breakdown
+
+| Component | Scope | Upstream PR files |
+| :--- | :--- | :--- |
+| Message handling | Spontaneous mower `onMapTrace` parser & chunk reassembly | `deebot_client/messages/json/map/__init__.py` |
+| Event model | Typed grouped mower geometry | `deebot_client/events/map.py` (`MowerMapTraceEvent`) |
+| Message registry | Mower message registration & routing | `deebot_client/messages/json/__init__.py`, `tests/messages/test_get_messages.py` |
+| Unit tests | Chunk reassembly, out-of-order indexes, memory limits, and legacy projection | `tests/messages/json/map/test_on_map_trace.py` |
+
+Key validation assertions established by PR #1567:
+- Eliminates ~70,000 parsing error warnings/day caused by vacuum `traceValue` assumptions on mower firmware.
+- Reassembles multi-chunk payload streams strictly matching `0..serial-1`.
+- Enforces strict per-key and global memory limits on buffered incomplete chunks with automatic lifecycle resets.
+- Emits both structured `MowerMapTraceEvent` (groups/segments) and a flattened legacy `MapTraceEvent` for backwards compatibility.
+
 ---
 
 # Static map acquisition research
