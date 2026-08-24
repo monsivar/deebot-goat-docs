@@ -868,6 +868,20 @@ Those remain separate implementation/research topics.
 | `#1772 + #1778 setVolume` combined routing | Requires explicit integration test |
 | Upstream merge | No |
 
+## PR #1772 summary and file breakdown
+
+| Component | Scope | Upstream PR files |
+| :--- | :--- | :--- |
+| Capability lookup | Device-specific command registration & lookup | `deebot_client/capabilities.py` (`Capabilities.get_command`) |
+| MQTT & P2P Client | Per-device routing with global fallback | `deebot_client/mqtt_client.py` |
+| Message routing | Legacy & JSON message dispatching | `deebot_client/messages/__init__.py`, `deebot_client/messages/json/__init__.py` |
+| Unit tests | Device command lookup & P2P routing verification | `tests/test_mqtt_device_command_lookup.py`, `tests/test_mqtt_p2p_device_routing.py`, `tests/test_mqtt_client.py` |
+
+Key architectural assertions established by PR #1772:
+- Resolves global name uniqueness constraint: allows mowers and vacuums to register independent implementations for the same protocol wire name (e.g. `clean`, `setCleanInfo`).
+- Device capability lookup takes primary precedence; global command registry serves as a non-breaking compatibility fallback.
+- P2P and MQTT routing correctly resolves device context for incoming push events and request-response cycles.
+
 ---
 
 # Related upstream work
