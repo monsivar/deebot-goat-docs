@@ -56,3 +56,13 @@ optional because the collector queries the upstream API directly.
 
 The target repository token must have permission to dispatch events, and the
 workflow token must be allowed to create pull requests.
+
+## Interactive review and publishing workflow
+
+When analyzing upstream changes interactively in the IDE:
+
+1. **Upstream check:** Check the GitHub API for new releases, merged PRs, and commits on `dev`.
+2. **Analysis proposal (Step 1):** Detail exact code changes, affected models/capabilities, test/protocol evidence, open questions, and target documentation pages.
+3. **Maintainer approval (Step 2):** Review and approve the proposed documentation scope.
+4. **Implementation & verification (Step 3):** Apply updates to the relevant Markdown pages in English with strict fail-closed precision.
+5. **Direct commit & push (Step 4):** Stage, commit with descriptive metadata, and push directly to `origin/main` on GitHub with verifiable links.
