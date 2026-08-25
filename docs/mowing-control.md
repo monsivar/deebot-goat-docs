@@ -841,14 +841,43 @@ Confirmed in current upstream source:
 * `State.DOCKED`
 * state-aware START/RESUME conversion
 
+## Physically verified GOAT O1200 control — PR #1791
+
+[`DeebotUniverse/client.py PR #1791`](https://github.com/DeebotUniverse/client.py/pull/1791) implements and verifies model-specific mower controls for the **ECOVACS GOAT O1200 LiDAR (`2i0fns`)**:
+
+* **Wire command:** Uses `clean` rather than `clean_V2`.
+* **Automatic mowing (`GoatClean`):**
+  - Start: `{"act": "start", "content": {"type": "auto"}}`
+  - Pause: `{"act": "pause", "content": {"type": "auto"}}`
+  - Resume: `{"act": "resume", "content": {"type": "auto"}}`
+  - Stop: `{"act": "stop", "content": {"type": "auto"}}`
+* **Area mowing (`GoatCleanArea`):**
+  - Single area: `{"act": "start", "content": {"type": "spotArea", "value": 1}}`
+  - Multi-area: `{"act": "start", "content": {"type": "spotArea", "value": "1,2"}}` (preserves specified area order)
+  - Pause/Resume/Stop: `{"act": "pause", "content": {"type": "spotArea"}}` (preserves active `spotArea` content type)
+* **Mode tracking (`GoatCleanModeEvent`):** Dynamically tracks active mode (`auto` or `spotArea`) from `onCleanInfo` push events to ensure subsequent pause/resume/stop commands send matching content types.
+* **Fail-closed validation:** Rejects vacuum-specific modes (`customArea`, `freeClean`), non-integer area IDs, empty lists, and `cleanings != 1`.
+* **Physical device verification:** Two full command lifecycles physically verified against a live O1200 mower returning `ret=ok` across all transitions:
+  1. Automatic mowing: START $\rightarrow$ PAUSE $\rightarrow$ RESUME $\rightarrow$ STOP.
+  2. Multi-area mowing: areas 1,2 START $\rightarrow$ PAUSE $\rightarrow$ RESUME $\rightarrow$ STOP.
+
+### PR #1791 summary and file breakdown
+
+| Component | Scope | Upstream PR files |
+| :--- | :--- | :--- |
+| Mower commands | `GoatClean`, `GoatCleanArea` implementations | `deebot_client/commands/json/clean.py` |
+| Event model | `GoatCleanModeEvent` mode tracking | `deebot_client/events/__init__.py` |
+| Hardware wiring | O1200 clean capability mapping | `deebot_client/hardware/2i0fns.py` |
+| Unit tests | 49 comprehensive mower control unit tests | `tests/hardware/test_2i0fns_clean.py` |
+
 ## Device tested / protocol observed
 
 Observed during physical mower testing for this research:
 
-* start mowing
-* pause active job
-* resume paused job
-* stop active job
+* start mowing (auto & multi-area)
+* pause active job (preserving active mode)
+* resume paused job (preserving active mode)
+* stop active job (preserving active mode)
 * ECOVACS-app stop confirmation
 * return to dock
 

@@ -141,6 +141,32 @@ Physical/app testing has demonstrated selected-zone behaviour.
 
 The researched O1200 currently has several development capabilities that go beyond the reviewed upstream baseline.
 
+## Mower control & multi-area mowing — PR #1791
+
+[`PR #1791`](https://github.com/DeebotUniverse/client.py/pull/1791) wires model-specific mower controls directly into the O1200 hardware profile (`deebot_client/hardware/2i0fns.py`):
+
+```python
+CapabilityClean(
+    action=CapabilityCleanAction(
+        command=GoatClean,
+        area=GoatCleanArea,
+    ),
+)
+```
+
+Features:
+- Automatic mowing (`auto` mode).
+- Single- and multi-area mowing (`spotArea` mode, e.g. `value: "1,2"`).
+- Dynamic mode tracking via `GoatCleanModeEvent` across start, pause, resume, and stop.
+
+Status:
+```text
+PR implemented
+Python tested (49 unit tests)
+Protocol observed
+Physical device verified (O1200)
+```
+
 ## Area names — PR #1774
 
 PR #1774 adds:

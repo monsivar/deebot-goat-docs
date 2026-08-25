@@ -105,7 +105,8 @@ Likewise, a Home Assistant test can prove that an event is exposed correctly as 
 | Resume mowing | ✓ | — | ✓ | ✓ | ✓ | Via state-aware START path | High |
 | Stop mowing | ✓ | — | ✓ | ✓ | ✓ | Not exposed as lawn_mower feature | High client confidence |
 | Selected-zone mowing | Partial | — | Generic tests | ✓ behaviour | ✓ | Not exposed | Medium |
-| O1200 area capability | — | — | — | Behaviour confirmed | ✓ | Not exposed | Open implementation gap |
+| O1200 mower control (`GoatClean`) | — | ✓ PR #1791 | ✓ (49 tests) | ✓ | ✓ live O1200 (auto) | Pending HA wiring | High (verified) |
+| O1200 multi-area mowing (`GoatCleanArea`) | — | ✓ PR #1791 | ✓ (49 tests) | ✓ | ✓ live O1200 (areas 1,2) | Pending HA wiring | High (verified) |
 | O1200 area names / IDs (`GetAreaSet`) | — | ✓ | ✓ | ✓ | ✓ live O1200 | HA branch implemented/tested | High for O1200 metadata |
 | Current mower state | ✓ | — | ✓ | ✓ | ✓ | Implemented/tested | High |
 | Common statistics | ✓ | — | ✓ | ✓ | ✓ | Implemented | High |

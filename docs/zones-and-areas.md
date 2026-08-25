@@ -135,9 +135,38 @@ produces:
 
 The generic client can therefore encode multiple target identifiers.
 
-On a GOAT, numeric values may correspond to lawn-zone IDs.
+### Physically verified O1200 area mowing — PR #1791
 
-The exact per-model mapping still requires evidence.
+Physical tests against the **GOAT O1200 LiDAR (`2i0fns`)** in [`PR #1791`](https://github.com/DeebotUniverse/client.py/pull/1791) confirm:
+
+1. **Single-area mowing:**
+   ```json
+   {
+     "act": "start",
+     "content": {
+       "type": "spotArea",
+       "value": 1
+     }
+   }
+   ```
+2. **Multi-area mowing:**
+   ```json
+   {
+     "act": "start",
+     "content": {
+       "type": "spotArea",
+       "value": "1,2"
+     }
+   }
+   ```
+   The area ID order is strictly preserved during serialization.
+3. **Active mode retention:**
+   When paused, resumed, or stopped during an area mowing job, the `content` dictionary must explicitly retain `{"type": "spotArea"}`:
+   ```json
+   {"act": "pause", "content": {"type": "spotArea"}}
+   ```
+4. **Unsupported modes:**
+   The O1200 rejects vacuum modes like `customArea` and `freeClean`. Non-integer area IDs and empty area lists fail closed.
 
 ---
 
