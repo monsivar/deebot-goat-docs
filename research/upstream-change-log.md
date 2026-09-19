@@ -185,3 +185,91 @@ Automatically collected from `DeebotUniverse/client.py`.
 - [`2c4be4f`](https://github.com/DeebotUniverse/client.py/commit/2c4be4f450a9eb440409348e08dde7fafc5d3bf5) — ⬆️ Update actions/setup-python action to v7 (#1728) (2026-07-29)
 
 - [`773bb4f`](https://github.com/DeebotUniverse/client.py/commit/773bb4fd8a920b068eac8bb0ed7392b8a4fed5ea) — ⬆️ Update pre-commit hook rbubley/mirrors-prettier to v3.9.6 (#1720) (2026-07-29)
+
+## 2026-09-19
+### Releases
+- [18.6.0](https://github.com/DeebotUniverse/client.py/releases/tag/18.6.0)
+
+### Merged pull requests
+- [#1801 — Add support for DEEBOT T80S (nazy54)](https://github.com/DeebotUniverse/client.py/pull/1801) (merged 2026-09-10)
+  - **Labels:** `pr: new-feature`
+  - **Changed files (1):** `nazy54.py`
+  - **Likely affected docs:** [supported-models.md](../docs/supported-models.md)
+- [#1809 — Add support for DEEBOT X12 OmniCyclone Care Complete (vihhjp)](https://github.com/DeebotUniverse/client.py/pull/1809) (merged 2026-09-10)
+  - **Labels:** `pr: new-feature`
+  - **Changed files (1):** `vihhjp.py`
+  - **Likely affected docs:** [supported-models.md](../docs/supported-models.md)
+- [#1800 — Fix DEEBOT T30C capabilities (ulzked)](https://github.com/DeebotUniverse/client.py/pull/1800) (merged 2026-09-10)
+  - **Labels:** `pr: new-feature`
+  - **Changed files (3):** `ulzked.py`, `ulzked.py`, `test_ulzked.py`
+  - **Likely affected docs:** [capabilities.md](../docs/capabilities.md), [supported-models.md](../docs/supported-models.md)
+- [#1737 — Add support for DEEBOT OZMO Slim10 Series (02uwxm)](https://github.com/DeebotUniverse/client.py/pull/1737) (merged 2026-09-10)
+  - **Labels:** `pr: new-feature`
+  - **Changed files (2):** `02uwxm.py`, `test_init.py`
+  - **Likely affected docs:** [supported-models.md](../docs/supported-models.md)
+- [#1790 — ⬆️ Lock file maintenance](https://github.com/DeebotUniverse/client.py/pull/1790) (merged 2026-09-10)
+  - **Labels:** `dependencies`, `no-stale`, `python`, `rust`
+  - **Changed files (2):** `Cargo.lock`, `uv.lock`
+- [#1770 — ⬆️ Update pre-commit hook astral-sh/ruff-pre-commit to v0.16.6](https://github.com/DeebotUniverse/client.py/pull/1770) (merged 2026-09-10)
+  - **Labels:** `dependencies`, `no-stale`
+  - **Changed files (2):** `.pre-commit-config.yaml`, `README.md`
+- [#1814 — ⬆️ Update actions-rust-lang/setup-rust-toolchain action to v2](https://github.com/DeebotUniverse/client.py/pull/1814) (merged 2026-09-10)
+  - **Labels:** `dependencies`, `no-stale`, `github_actions`
+  - **Changed files (1):** `ci.yml`
+- [#1812 — ⬆️ Update Rust crate rstest to 0.27.0](https://github.com/DeebotUniverse/client.py/pull/1812) (merged 2026-09-10)
+  - **Labels:** `dependencies`, `no-stale`, `rust`
+  - **Changed files (2):** `Cargo.lock`, `Cargo.toml`
+- [#1813 — ⬆️ Update Rust crate zstd to 0.14.0](https://github.com/DeebotUniverse/client.py/pull/1813) (merged 2026-09-10)
+  - **Labels:** `dependencies`, `no-stale`, `rust`
+  - **Changed files (2):** `Cargo.lock`, `Cargo.toml`
+- [#1811 — ⬆️ Update dependency prek to v0.5.2](https://github.com/DeebotUniverse/client.py/pull/1811) (merged 2026-09-10)
+  - **Labels:** `dependencies`, `no-stale`, `python`
+  - **Changed files (2):** `pyproject.toml`, `uv.lock`
+- [#1810 — ⬆️ Update Rust crate ordermap to v1.2.2](https://github.com/DeebotUniverse/client.py/pull/1810) (merged 2026-09-10)
+  - **Labels:** `dependencies`, `no-stale`, `rust`
+  - **Changed files (1):** `Cargo.lock`
+- [#1766 — ⬆️ Update docker/setup-buildx-action action to v4.3.0](https://github.com/DeebotUniverse/client.py/pull/1766) (merged 2026-09-10)
+  - **Labels:** `dependencies`, `no-stale`, `github_actions`
+  - **Changed files (1):** `ci.yml`
+- [#1787 — ⬆️ Update dependency syrupy to v6](https://github.com/DeebotUniverse/client.py/pull/1787) (merged 2026-09-10)
+  - **Labels:** `dependencies`, `no-stale`, `python`
+  - **Changed files (2):** `pyproject.toml`, `uv.lock`
+- [#1779 — ⬆️ Update re-actors/alls-green action to v1.3.0](https://github.com/DeebotUniverse/client.py/pull/1779) (merged 2026-09-10)
+  - **Labels:** `dependencies`, `no-stale`, `github_actions`
+  - **Changed files (1):** `ci.yml`
+- [#1786 — ⬆️ Update Rust crate crc32fast to v1.5.1](https://github.com/DeebotUniverse/client.py/pull/1786) (merged 2026-09-10)
+  - **Labels:** `dependencies`, `no-stale`, `rust`
+  - **Changed files (1):** `Cargo.lock`
+- [#1775 — ⬆️ Update github/codeql-action action to v4.38.0](https://github.com/DeebotUniverse/client.py/pull/1775) (merged 2026-09-10)
+  - **Labels:** `dependencies`, `no-stale`, `github_actions`
+  - **Changed files (2):** `codeql-analysis.yml`, `scorecard.yml`
+- [#1783 — ⬆️ Update Rust crate log to v0.4.34](https://github.com/DeebotUniverse/client.py/pull/1783) (merged 2026-09-10)
+  - **Labels:** `dependencies`, `no-stale`, `rust`
+  - **Changed files (1):** `Cargo.lock`
+- [#1792 — ⬆️ Update CodSpeedHQ/action action to v5.2.1](https://github.com/DeebotUniverse/client.py/pull/1792) (merged 2026-09-10)
+  - **Labels:** `dependencies`, `no-stale`, `github_actions`
+  - **Changed files (1):** `ci.yml`
+- [#1793 — ⬆️ Update dependency maturin to v1.15.0](https://github.com/DeebotUniverse/client.py/pull/1793) (merged 2026-09-10)
+  - **Labels:** `dependencies`, `no-stale`, `python`
+  - **Changed files (2):** `pyproject.toml`, `uv.lock`
+
+### Commits on `dev`
+- [`be8cbbd`](https://github.com/DeebotUniverse/client.py/commit/be8cbbda9159e8b750efc4727eccf66ae5ff80bf) — Add support for DEEBOT T80S Omni (nazy54) (#1801) (2026-09-10)
+- [`e33d3e2`](https://github.com/DeebotUniverse/client.py/commit/e33d3e2530977b235ceaf4b02d5e9c239b5975ca) — Add support for DEEBOT X12 OmniCyclone Care Complete (vihhjp) (#1809) (2026-09-10)
+- [`51fed57`](https://github.com/DeebotUniverse/client.py/commit/51fed5714fb5299c1004bf2f9a3fbdc4220a2902) — Fix DEEBOT T30C capabilities (ulzked) (#1800) (2026-09-10)
+- [`2b4cbf6`](https://github.com/DeebotUniverse/client.py/commit/2b4cbf620688f409667b816e4f2c6dc464d8e7de) — Add support for DEEBOT OZMO Slim10 Series (02uwxm) (#1737) (2026-09-10)
+- [`cb83ec4`](https://github.com/DeebotUniverse/client.py/commit/cb83ec4af0f997da75a3b2948bd2c7ce7690dd4e) — ⬆️ Lock file maintenance (#1790) (2026-09-10)
+- [`0b5f7c4`](https://github.com/DeebotUniverse/client.py/commit/0b5f7c4bcbe4fa3ae93637e849d22eb72e58fcc1) — ⬆️ Update pre-commit hook astral-sh/ruff-pre-commit to v0.16.6 (#1770) (2026-09-10)
+- [`efa61ef`](https://github.com/DeebotUniverse/client.py/commit/efa61ef0d7b16a087926ebd8f2b3d09035b2910b) — ⬆️ Update actions-rust-lang/setup-rust-toolchain action to v2 (#1814) (2026-09-10)
+- [`339d34c`](https://github.com/DeebotUniverse/client.py/commit/339d34c5f0157793450cbd812fa9846d2b143e3a) — ⬆️ Update Rust crate rstest to 0.27.0 (#1812) (2026-09-10)
+- [`e9b5171`](https://github.com/DeebotUniverse/client.py/commit/e9b5171f45333377ab98a77367130f4478850dd0) — ⬆️ Update Rust crate zstd to 0.14.0 (#1813) (2026-09-10)
+- [`fd15a54`](https://github.com/DeebotUniverse/client.py/commit/fd15a54c38f126cf8f88e758ea494844bf77e39c) — ⬆️ Update dependency prek to v0.5.2 (#1811) (2026-09-10)
+- [`70a2a13`](https://github.com/DeebotUniverse/client.py/commit/70a2a137f4fb518417873a82092886389b32bbed) — ⬆️ Update Rust crate ordermap to v1.2.2 (#1810) (2026-09-10)
+- [`aeb5b91`](https://github.com/DeebotUniverse/client.py/commit/aeb5b9104bd37174305a4e2ce10fa16f37c0c17e) — ⬆️ Update docker/setup-buildx-action action to v4.3.0 (#1766) (2026-09-10)
+- [`548b537`](https://github.com/DeebotUniverse/client.py/commit/548b5376e0a02d5282953ec26518d1db8d77a067) — ⬆️ Update dependency syrupy to v6 (#1787) (2026-09-10)
+- [`a037269`](https://github.com/DeebotUniverse/client.py/commit/a037269514bc19f939e7ec0f0adcab33d0d4801e) — ⬆️ Update re-actors/alls-green action to v1.3.0 (#1779) (2026-09-10)
+- [`b6e2e9b`](https://github.com/DeebotUniverse/client.py/commit/b6e2e9bcc917f5c5d0f99476a594437ca090436c) — ⬆️ Update Rust crate crc32fast to v1.5.1 (#1786) (2026-09-10)
+- [`1a17f95`](https://github.com/DeebotUniverse/client.py/commit/1a17f95b57ffcf3b21375c6436890fafffc06936) — ⬆️ Update github/codeql-action action to v4.38.0 (#1775) (2026-09-10)
+- [`951d310`](https://github.com/DeebotUniverse/client.py/commit/951d310b285c19b1b2f053a50f84ba732d155ded) — ⬆️ Update Rust crate log to v0.4.34 (#1783) (2026-09-10)
+- [`0641b4c`](https://github.com/DeebotUniverse/client.py/commit/0641b4c8e2e5da0efb5045e8c50c2fd6e1100b34) — ⬆️ Update CodSpeedHQ/action action to v5.2.1 (#1792) (2026-09-10)
+- [`6372ab4`](https://github.com/DeebotUniverse/client.py/commit/6372ab4e370d6510edc96f54c1acb2f975d02665) — ⬆️ Update dependency maturin to v1.15.0 (#1793) (2026-09-10)
