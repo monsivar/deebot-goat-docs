@@ -185,3 +185,168 @@ Automatically collected from `DeebotUniverse/client.py`.
 - [`2c4be4f`](https://github.com/DeebotUniverse/client.py/commit/2c4be4f450a9eb440409348e08dde7fafc5d3bf5) — ⬆️ Update actions/setup-python action to v7 (#1728) (2026-07-29)
 
 - [`773bb4f`](https://github.com/DeebotUniverse/client.py/commit/773bb4fd8a920b068eac8bb0ed7392b8a4fed5ea) — ⬆️ Update pre-commit hook rbubley/mirrors-prettier to v3.9.6 (#1720) (2026-07-29)
+
+## 2026-10-17
+### Releases
+- [18.7.0](https://github.com/DeebotUniverse/client.py/releases/tag/18.7.0)
+- [18.6.0](https://github.com/DeebotUniverse/client.py/releases/tag/18.6.0)
+
+### Merged pull requests
+- [#1899 — Add support for Ecovacs DEEBOT T80S (yaj2zg)](https://github.com/DeebotUniverse/client.py/pull/1899) (merged 2026-10-16)
+  - **Labels:** `new-feature`
+  - **Changed files (1):** `yaj2zg.py`
+  - **Likely affected docs:** [supported-models.md](../docs/supported-models.md)
+- [#1903 — Upgrade and pin runners to Ubuntu 26.04](https://github.com/DeebotUniverse/client.py/pull/1903) (merged 2026-10-16)
+  - **Labels:** `refactor`
+  - **Changed files (1):** `ci.yml`
+- [#1901 — Use the T80s Pro (9jc32i) capabilities DEEBOT T80S (nazy54)](https://github.com/DeebotUniverse/client.py/pull/1901) (merged 2026-10-16)
+  - **Labels:** `bug`
+  - **Changed files (1):** `nazy54.py`
+  - **Likely affected docs:** [capabilities.md](../docs/capabilities.md), [supported-models.md](../docs/supported-models.md)
+- [#1902 — Reduce and combine labels](https://github.com/DeebotUniverse/client.py/pull/1902) (merged 2026-10-16)
+  - **Labels:** `refactor`
+  - **Changed files (1):** `release-drafter.yml`
+- [#13 — lose requirements](https://github.com/DeebotUniverse/client.py/pull/13) (merged 2021-11-04)
+  - **Labels:** `dependencies`
+  - **Changed files (1):** `requirements.txt`
+- [#25 — [pre-commit.ci] pre-commit autoupdate](https://github.com/DeebotUniverse/client.py/pull/25) (merged 2021-11-17)
+  - **Labels:** `dependencies`
+  - **Changed files (1):** `.pre-commit-config.yaml`
+- [#27 — use cache in CI](https://github.com/DeebotUniverse/client.py/pull/27) (merged 2021-11-19)
+  - **Labels:** `dependencies`
+  - **Changed files (1):** `ci.yml`
+- [#31 — Bump types-cachetools from 4.2.4 to 4.2.5](https://github.com/DeebotUniverse/client.py/pull/31) (merged 2021-11-22)
+  - **Labels:** `dependencies`
+  - **Changed files (1):** `requirements-test.txt`
+- [#32 — [pre-commit.ci] pre-commit autoupdate](https://github.com/DeebotUniverse/client.py/pull/32) (merged 2021-11-22)
+  - **Labels:** `dependencies`
+  - **Changed files (1):** `.pre-commit-config.yaml`
+- [#34 — Bump types-cachetools from 4.2.5 to 4.2.6](https://github.com/DeebotUniverse/client.py/pull/34) (merged 2021-11-25)
+  - **Labels:** `dependencies`
+  - **Changed files (1):** `requirements-test.txt`
+- [#35 — Bump pylint from 2.11.1 to 2.12.1](https://github.com/DeebotUniverse/client.py/pull/35) (merged 2021-11-26)
+  - **Labels:** `dependencies`
+  - **Changed files (1):** `requirements-test.txt`
+- [#36 — Bump actions/setup-python from 2.3.0 to 2.3.1](https://github.com/DeebotUniverse/client.py/pull/36) (merged 2021-11-29)
+  - **Labels:** `dependencies`
+  - **Changed files (2):** `ci.yml`, `python-publish.yml`
+- [#38 — [pre-commit.ci] pre-commit autoupdate](https://github.com/DeebotUniverse/client.py/pull/38) (merged 2021-11-29)
+  - **Labels:** `dependencies`
+  - **Changed files (1):** `.pre-commit-config.yaml`
+- [#39 — Bump pre-commit from 2.15.0 to 2.16.0](https://github.com/DeebotUniverse/client.py/pull/39) (merged 2021-12-02)
+  - **Labels:** `dependencies`
+  - **Changed files (1):** `requirements-test.txt`
+- [#42 — Bump pylint from 2.12.1 to 2.12.2](https://github.com/DeebotUniverse/client.py/pull/42) (merged 2021-12-08)
+  - **Labels:** `dependencies`
+  - **Changed files (2):** `pylintrc`, `requirements-test.txt`
+- [#43 — [pre-commit.ci] pre-commit autoupdate](https://github.com/DeebotUniverse/client.py/pull/43) (merged 2021-12-08)
+  - **Labels:** `dependencies`
+  - **Changed files (1):** `.pre-commit-config.yaml`
+- [#51 — Update cachetools requirement from ~=4.2.4 to ~=5.0.0](https://github.com/DeebotUniverse/client.py/pull/51) (merged 2021-12-22)
+  - **Labels:** `dependencies`
+  - **Changed files (1):** `requirements.txt`
+- [#52 — Bump mypy from 0.910 to 0.930](https://github.com/DeebotUniverse/client.py/pull/52) (merged 2021-12-27)
+  - **Labels:** `dependencies`
+  - **Changed files (2):** `logging_filter.py`, `requirements-test.txt`
+- [#53 — [pre-commit.ci] pre-commit autoupdate](https://github.com/DeebotUniverse/client.py/pull/53) (merged 2021-12-27)
+  - **Labels:** `dependencies`
+  - **Changed files (1):** `.pre-commit-config.yaml`
+- [#54 — Bump types-cachetools from 4.2.6 to 4.2.7](https://github.com/DeebotUniverse/client.py/pull/54) (merged 2022-01-01)
+  - **Labels:** `dependencies`
+  - **Changed files (1):** `requirements-test.txt`
+- [#55 — Update pillow requirement from ~=8.4.0 to ~=9.0.0](https://github.com/DeebotUniverse/client.py/pull/55) (merged 2022-01-13)
+  - **Labels:** `dependencies`
+  - **Changed files (1):** `requirements.txt`
+- [#56 — Update numpy requirement from ~=1.21.2 to ~=1.22.0](https://github.com/DeebotUniverse/client.py/pull/56) (merged 2022-01-13)
+  - **Labels:** `dependencies`
+  - **Changed files (1):** `requirements.txt`
+- [#60 — Bump mypy from 0.930 to 0.931](https://github.com/DeebotUniverse/client.py/pull/60) (merged 2022-01-10)
+  - **Labels:** `dependencies`
+  - **Changed files (1):** `requirements-test.txt`
+- [#62 — Bump types-cachetools from 4.2.7 to 4.2.9](https://github.com/DeebotUniverse/client.py/pull/62) (merged 2022-01-13)
+  - **Labels:** `dependencies`
+  - **Changed files (1):** `requirements-test.txt`
+- [#63 — Update numpy requirement from ~=1.22.0 to ~=1.22.1](https://github.com/DeebotUniverse/client.py/pull/63) (merged 2022-01-17)
+  - **Labels:** `dependencies`
+  - **Changed files (1):** `requirements.txt`
+- [#66 — loose version requirements](https://github.com/DeebotUniverse/client.py/pull/66) (merged 2022-01-19)
+  - **Labels:** `dependencies`
+  - **Changed files (1):** `requirements.txt`
+- [#67 — Bump pre-commit from 2.16.0 to 2.17.0](https://github.com/DeebotUniverse/client.py/pull/67) (merged 2022-01-19)
+  - **Labels:** `dependencies`
+  - **Changed files (1):** `requirements-test.txt`
+- [#73 — [pre-commit.ci] pre-commit autoupdate](https://github.com/DeebotUniverse/client.py/pull/73) (merged 2022-02-01)
+  - **Labels:** `dependencies`
+  - **Changed files (2):** `.pre-commit-config.yaml`, `map.py`
+  - **Likely affected docs:** [map.md](../docs/map.md)
+- [#74 — Bump pytest from 6.2.5 to 7.0.0](https://github.com/DeebotUniverse/client.py/pull/74) (merged 2022-02-06)
+  - **Labels:** `dependencies`
+  - **Changed files (1):** `requirements-test.txt`
+- [#75 — Bump actions/setup-python from 2.3.1 to 2.3.2](https://github.com/DeebotUniverse/client.py/pull/75) (merged 2022-02-06)
+  - **Labels:** `dependencies`
+  - **Changed files (2):** `ci.yml`, `python-publish.yml`
+- [#79 — Bump actions/setup-python from 2.3.2 to 3.0.0](https://github.com/DeebotUniverse/client.py/pull/79) (merged 2022-02-28)
+  - **Labels:** `dependencies`
+  - **Changed files (2):** `ci.yml`, `python-publish.yml`
+- [#81 — Bump actions/checkout from 2 to 3](https://github.com/DeebotUniverse/client.py/pull/81) (merged 2022-03-02)
+  - **Labels:** `dependencies`
+  - **Changed files (3):** `ci.yml`, `codeql-analysis.yml`, `python-publish.yml`
+- [#82 — Bump pytest-asyncio from 0.18.1 to 0.18.2](https://github.com/DeebotUniverse/client.py/pull/82) (merged 2022-03-05)
+  - **Labels:** `dependencies`
+  - **Changed files (1):** `requirements-test.txt`
+- [#84 — Bump types-cachetools from 4.2.9 to 4.2.10](https://github.com/DeebotUniverse/client.py/pull/84) (merged 2022-03-07)
+  - **Labels:** `dependencies`
+  - **Changed files (1):** `requirements-test.txt`
+- [#86 — Bump types-cachetools from 4.2.10 to 5.0.0](https://github.com/DeebotUniverse/client.py/pull/86) (merged 2022-03-14)
+  - **Labels:** `dependencies`
+  - **Changed files (1):** `requirements-test.txt`
+- [#88 — Bump pytest from 7.0.1 to 7.1.0](https://github.com/DeebotUniverse/client.py/pull/88) (merged 2022-03-14)
+  - **Labels:** `dependencies`
+  - **Changed files (1):** `requirements-test.txt`
+- [#90 — Bump mypy from 0.931 to 0.941](https://github.com/DeebotUniverse/client.py/pull/90) (merged 2022-03-15)
+  - **Labels:** `dependencies`
+  - **Changed files (2):** `util.py`, `requirements-test.txt`
+- [#93 — Bump pytest from 7.1.0 to 7.1.1](https://github.com/DeebotUniverse/client.py/pull/93) (merged 2022-03-18)
+  - **Labels:** `dependencies`
+  - **Changed files (1):** `requirements-test.txt`
+- [#95 — Bump mypy from 0.941 to 0.942](https://github.com/DeebotUniverse/client.py/pull/95) (merged 2022-03-25)
+  - **Labels:** `dependencies`
+  - **Changed files (1):** `requirements-test.txt`
+- [#97 — Bump pytest-asyncio from 0.18.2 to 0.18.3](https://github.com/DeebotUniverse/client.py/pull/97) (merged 2022-03-25)
+  - **Labels:** `dependencies`
+  - **Changed files (1):** `requirements-test.txt`
+- [#100 — Bump pylint from 2.12.2 to 2.13.3](https://github.com/DeebotUniverse/client.py/pull/100) (merged 2022-03-29)
+  - **Labels:** `dependencies`
+  - **Changed files (1):** `requirements-test.txt`
+
+### Commits on `dev`
+- [`cb118b0`](https://github.com/DeebotUniverse/client.py/commit/cb118b0cbbf06a161db9c572394b769787bada78) — Upgrade and pin runners to Ubuntu 26.04 (#1903) (2026-10-16)
+- [`064b2dd`](https://github.com/DeebotUniverse/client.py/commit/064b2dda38dcb16ec5061f86d4e16acb5fb0b2e9) — fix(nazy54): use the T80s Pro (9jc32i) capabilities (#1901) (2026-10-16)
+- [`c55c427`](https://github.com/DeebotUniverse/client.py/commit/c55c4272bc9a5fc07354185476303af47dc269d4) — Reduce and combine labels (#1902) (2026-10-16)
+- [`73cfff2`](https://github.com/DeebotUniverse/client.py/commit/73cfff26330e921b1cd69e3e983fda16ae816366) — Trim unused Rust dependencies and features (#1900) (2026-10-16)
+- [`4ffed40`](https://github.com/DeebotUniverse/client.py/commit/4ffed4097bf1169bdc8d9d5c051fd77cbe4d856c) — feat: Add support for Ecovacs DEEBOT T80S (yaj2zg) (#1899) (2026-10-16)
+- [`46609f1`](https://github.com/DeebotUniverse/client.py/commit/46609f1e16490084dcd37ac231d64bf9e09ce30c) — fix: Handle unknown LifeSpan types gracefully in GetLifeSpan command (#1645) (2026-10-16)
+- [`3da87ba`](https://github.com/DeebotUniverse/client.py/commit/3da87ba0571850ca6822794288b8d1ee56570e34) — Add support for DEEBOT X12 PRO water-connected model (#1818) (2026-10-16)
+- [`68bb78c`](https://github.com/DeebotUniverse/client.py/commit/68bb78c39ab8f36e12aac0ad8df3e0164613638e) — Add support for DEEBOT X12S OmniCyclone (k5azjg) (#1821) (2026-10-16)
+- [`bf03e49`](https://github.com/DeebotUniverse/client.py/commit/bf03e49ad7bae80c10fdc76a18d87f72a4e84b38) — Add support for DEEBOT T50 PRO OMNI Gen3 (jjg8ne) (#1842) (2026-10-16)
+- [`4beb8d6`](https://github.com/DeebotUniverse/client.py/commit/4beb8d65417403f00c423f988d47a0b246f36bf6) — Add support for DEEBOT T90 OMNI (7fpaed) (#1849) (2026-10-16)
+- [`e9fd769`](https://github.com/DeebotUniverse/client.py/commit/e9fd769ad7192cc868601a0b4b8243eb1c0a55c6) — add T80 water tank family member (#1840) (2026-10-15)
+- [`87e9cfd`](https://github.com/DeebotUniverse/client.py/commit/87e9cfdf803081ecc232f40e0a071848c1fa61c6) — ⬆️ Update pre-commit hook astral-sh/ruff-pre-commit to v0.17.1 (#1815) (2026-10-15)
+- [`7cd5659`](https://github.com/DeebotUniverse/client.py/commit/7cd56595c951cf2341c1ecd7c06a0d6d0a6c43ce) — ⬆️ Lock file maintenance (#1831) (2026-10-15)
+- [`b480dce`](https://github.com/DeebotUniverse/client.py/commit/b480dce1a501a47afb5e5590a2acedc881b6edcb) — ⬆️ Update Rust to 1.99 (#1896) (2026-10-15)
+- [`e693fa9`](https://github.com/DeebotUniverse/client.py/commit/e693fa9172e4ed3915b0f469fad658da46511bf0) — ⬆️ Update dependency syrupy to v6.1.1 (#1830) (2026-10-15)
+- [`5cd6b4f`](https://github.com/DeebotUniverse/client.py/commit/5cd6b4f497ae444b61b881b9140d3d4dedcfaa18) — ⬆️ Update dependency prek to v0.5.5 (#1822) (2026-10-15)
+- [`e592c54`](https://github.com/DeebotUniverse/client.py/commit/e592c54e896a5fb84f9ee6f760a9ebded52bfd83) — ⬆️ Update Rust crate pyo3 to 0.29.3 (#1889) (2026-10-15)
+- [`ed0b822`](https://github.com/DeebotUniverse/client.py/commit/ed0b822c21281ccaf9dd2e6387f8ee25e08d8ab5) — ⬆️ Update Rust crate serde_json to v1.0.154 (#1879) (2026-10-15)
+- [`d90a68e`](https://github.com/DeebotUniverse/client.py/commit/d90a68e0bf0ed105d9d5ad29d89de5471c149455) — ⬆️ Update Rust crate zstd to v0.14.2 (#1880) (2026-10-15)
+- [`1ca2565`](https://github.com/DeebotUniverse/client.py/commit/1ca25655c183b8cc006e6bf2ac625b61382309ba) — ⬆️ Update pre-commit hook prettier to v3.9.10 (#1838) (2026-10-15)
+- [`aaec085`](https://github.com/DeebotUniverse/client.py/commit/aaec085194a675645b841529e3fe212c98c31849) — ⬆️ Update astral-sh/setup-uv action to v10.3.0 (#1816) (2026-10-15)
+- [`b94ccbe`](https://github.com/DeebotUniverse/client.py/commit/b94ccbeda4f750f379ae30364fd5144ff960cb34) — ⬆️ Update dependency cryptography to v50.0.2 (#1894) (2026-10-15)
+- [`ca1ee08`](https://github.com/DeebotUniverse/client.py/commit/ca1ee08fa0af9d3cb0a539ecdd4d883207e4dd98) — ⬆️ Update release-drafter/release-drafter action to v7.10.0 (#1888) (2026-10-15)
+- [`cf223f7`](https://github.com/DeebotUniverse/client.py/commit/cf223f7e6829c1cc3f94ee68c493c0de0febbcea) — ⬆️ Update github/codeql-action action to v4.39.0 (#1885) (2026-10-15)
+- [`8d82621`](https://github.com/DeebotUniverse/client.py/commit/8d826215d8bb5cf50b2eabd4c2d8f8356bb01bb4) — ⬆️ Update dependency testfixtures to v12.4.0 (#1884) (2026-10-15)
+- [`e60e84f`](https://github.com/DeebotUniverse/client.py/commit/e60e84f1dcc2546319409d3b9df076f879c2d15e) — ⬆️ Update j178/prek-action action to v3.0.1 (#1877) (2026-10-15)
+- [`9b43ae9`](https://github.com/DeebotUniverse/client.py/commit/9b43ae97c5fab08af575e2b5e58fbcbd21f1446d) — ⬆️ Update pre-commit hook rbubley/mirrors-prettier to v3.9.10 (#1878) (2026-10-15)
+- [`6a914e7`](https://github.com/DeebotUniverse/client.py/commit/6a914e7a53ed19b07b082b7c5189c7b600d44a56) — ⬆️ Update clechasseur/rs-clippy-check action to v6.1.0 (#1881) (2026-10-15)
+- [`5469229`](https://github.com/DeebotUniverse/client.py/commit/5469229af4e9142cb46106be21cf89f42a655be1) — ⬆️ Update dependency mypy to v2.4.0 (#1883) (2026-10-15)
+- [`d5bafe9`](https://github.com/DeebotUniverse/client.py/commit/d5bafe9ec528509502afb74549e5d2601b5950dc) — ⬆️ Update CodSpeedHQ/action action to v5.5.0 (#1882) (2026-10-15)
